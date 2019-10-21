@@ -12,8 +12,20 @@ void Board::Clear()
 
 void Board::Print()
 {
+	cout << " ";
+	for (int i = 1; i <= BOARD_SIZE; ++i)
+	{
+		if (i < 10)
+			printf("%2d", i);
+		else
+			printf(" %c", 'a' + i - 10);
+	}
+	cout << endl;
+
 	for (int i = 0; i < BOARD_SIZE; ++i)
 	{
+		printf("%c ", 'A' + i);
+
 		for (int j = 0; j < BOARD_SIZE; ++j)
 		{
 			int grid = GetGrid(i, j);
@@ -28,7 +40,7 @@ void Board::Print()
 			}
 			if (grid == E_WHITE)
 			{
-				cout << "X ";
+				cout << "@ ";
 			}
 		}
 		cout << endl;
