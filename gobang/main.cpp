@@ -4,11 +4,18 @@
 void main()
 {
 	Game g;
+	string move;
 	
-	for (int i = 0; i < 100; ++i)
+	while (g.GetState() == Game::E_NORMAL)
 	{
-		if (!g.PutRandomChess())
-			break;
+		cout << endl;
+		g.Print();
+
+		cout << "Enter your move: ";
+		cin >> move;
+
+		g.PutChess(move);
+		g.PutRandomChess();
 	}
 	g.Print();
 }

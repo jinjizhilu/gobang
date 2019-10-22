@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <string>
 #include <vector>
 
 using namespace std;
@@ -35,8 +36,10 @@ public:
 	void Print();
 	Int2 GetNthEmptyGrid(int n);
 	int GetGrid(int row, int col);
-	void SetGrid(int row, int col, short value);
+	bool SetGrid(int row, int col, short value);
 	int GetChessNumInLine(int row, int col, ChessDirection dir);
+
+	static Int2 GetCoord(const string &input);
 
 	short grids[BOARD_SIZE * BOARD_SIZE];
 };
@@ -54,6 +57,7 @@ public:
 
 	Game();
 	void Init();
+	bool PutChess(const string &move);
 	bool PutChess(int row, int col);
 	bool PutRandomChess();
 	void Print();

@@ -71,9 +71,13 @@ int Board::GetGrid(int row, int col)
 	return grids[row * BOARD_SIZE + col];
 }
 
-void Board::SetGrid(int row, int col, short value)
+bool Board::SetGrid(int row, int col, short value)
 {
+	if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE)
+		return false;
+
 	grids[row * BOARD_SIZE + col] = value;
+	return true;
 }
 
 int Board::GetChessNumInLine(int row, int col, ChessDirection dir)
@@ -120,6 +124,13 @@ int Board::GetChessNumInLine(int row, int col, ChessDirection dir)
 	return count;
 }
 
+Int2 Board::GetCoord(const string &input)
+{
+	int row = input[0] - 'A';
+	int col = input[1] <= '9' ? input[1] - '1' : input[1] - 'a' + 9;
+	return Int2(row, col);
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 Game::Game()
@@ -142,7 +153,9 @@ bool Game::PutChess(int row, int col)
 		return false;
 
 	int side = GetSide();
-	board.SetGrid(row, col, side);
+	if (!board.SetGrid(row, col, side))
+		return false;
+
 
 	record.push_back(Int2(row, col));
 	++turn;
@@ -154,6 +167,12 @@ bool Game::PutChess(int row, int col)
 		state = E_DRAW;
 
 	return true;
+}
+
+bool Game::PutChess(const string &move)
+{
+	Int2 coord = Board::GetCoord(move);
+	return PutChess(coord.x, coord.y);
 }
 
 bool Game::PutRandomChess()
