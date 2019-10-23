@@ -2,20 +2,45 @@
 #include <cstdlib>
 #include <ctime>
 
+#define max(a, b) ((a > b) ? a : b)
+
+Board::Board()
+{
+	
+}
+
 void Board::Clear()
 {
-	for (int i = 0; i < BOARD_SIZE * BOARD_SIZE; ++i)
+	for (int i = 0; i < GRID_NUM; ++i)
 	{
 		grids[i] = E_EMPTY;
 	}
 }
 
-void Board::Print()
+void Board::Print(Int2 lastChess)
 {
+	cout << " ";
+	for (int i = 1; i <= BOARD_SIZE; ++i)
+	{
+		if (i < 10)
+			printf("%2d", i);
+		else
+			printf(" %c", 'a' + i - 10);
+	}
+	cout << endl;
+
 	for (int i = 0; i < BOARD_SIZE; ++i)
 	{
+		printf("%c ", 'A' + i);
+
 		for (int j = 0; j < BOARD_SIZE; ++j)
 		{
+			if (i == lastChess.x && j == lastChess.y)
+			{
+				cout << "X ";
+				continue;
+			}
+
 			int grid = GetGrid(i, j);
 
 			if (grid == E_EMPTY)
@@ -24,31 +49,15 @@ void Board::Print()
 			}
 			if (grid == E_BALCK)
 			{
-				cout << "O ";
+				cout << "@ ";
 			}
 			if (grid == E_WHITE)
 			{
-				cout << "X ";
+				cout << "O ";
 			}
 		}
 		cout << endl;
 	}
-}
-
-Int2 Board::GetNthEmptyGrid(int n)
-{
-	for (int i = 0; i < BOARD_SIZE; ++i)
-	{
-		for (int j = 0; j < BOARD_SIZE; ++j)
-		{
-			if (GetGrid(i, j) == E_EMPTY)
-			{
-				if (--n == 0)
-					return Int2(i, j);
-			}
-		}
-	}
-	return Int2(0, 0);
 }
 
 int Board::GetGrid(int row, int col)
@@ -59,9 +68,13 @@ int Board::GetGrid(int row, int col)
 	return grids[row * BOARD_SIZE + col];
 }
 
-void Board::SetGrid(int row, int col, short value)
+bool Board::SetGrid(int row, int col, short value)
 {
+	if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE)
+		return false;
+
 	grids[row * BOARD_SIZE + col] = value;
+	return true;
 }
 
 int Board::GetChessNumInLine(int row, int col, ChessDirection dir)
@@ -108,6 +121,23 @@ int Board::GetChessNumInLine(int row, int col, ChessDirection dir)
 	return count;
 }
 
+bool Board::CheckNeighbourChessNum(int row, int col, int side, int radius, int num)
+{
+	int count = 0;
+	for (int i = row - radius; i <= row + radius; ++i)
+	{
+		for (int j = col - radius; j <= col + radius; ++j)
+		{
+			if (GetGrid(i, j) == side)
+			{
+				if (++count >= num)
+					return true;
+			}
+		}
+	}
+	return false;
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 Game::Game()
@@ -122,6 +152,16 @@ void Game::Init()
 	board.Clear();
 	record.clear();
 	state = E_NORMAL;
+	isSimMode = false;
+	
+	emptyGrids.clear();
+	for (int i = 0; i < BOARD_SIZE; ++i)
+	{
+		for (int j = 0; j < BOARD_SIZE; ++j)
+		{
+			emptyGrids.push_back(Int2(i, j));
+		}
+	}
 }
 
 bool Game::PutChess(int row, int col)
@@ -130,15 +170,21 @@ bool Game::PutChess(int row, int col)
 		return false;
 
 	int side = GetSide();
-	board.SetGrid(row, col, side);
+	if (!board.SetGrid(row, col, side))
+		return false;
 
-	record.push_back(Int2(row, col));
+	lastMove = Int2(row, col);
+
+	if (!isSimMode)
+		record.push_back(lastMove);
+
+	UpdateEmptyGrids();
 	++turn;
 
-	if (IsWinThisTurn())
+	if (IsWinThisTurn(lastMove))
 		state = (side == Board::E_BALCK) ? E_BLACK_WIN : E_WHITE_WIN;
 
-	if (turn > BOARD_SIZE * BOARD_SIZE)
+	if (turn > GRID_NUM)
 		state = E_DRAW;
 
 	return true;
@@ -146,11 +192,38 @@ bool Game::PutChess(int row, int col)
 
 bool Game::PutRandomChess()
 {
-	int emptyCount = BOARD_SIZE * BOARD_SIZE - turn;
-	int id = rand() % emptyCount;
-	Int2 grid = board.GetNthEmptyGrid(id);
+	int id = rand() % emptyGrids.size();
+	swap(emptyGrids[id], emptyGrids.back());
+	Int2 grid = emptyGrids.back();
 
 	return PutChess(grid.x, grid.y);
+}
+
+void Game::UpdateEmptyGrids()
+{
+	if (emptyGrids.back() == lastMove)
+	{
+		emptyGrids.pop_back();
+	}
+	else
+	{
+		for (int i = emptyGrids.size() - 1; i >= 0; --i)
+		{
+			if (emptyGrids[i] == lastMove)
+			{
+				swap(emptyGrids[i], emptyGrids.back());
+				emptyGrids.pop_back();
+				break;
+			}
+		}
+	}
+}
+
+bool Game::IsLonelyGrid(int row, int col, int radius)
+{
+	int oppnentSide = ((turn + 1) % 2 == 1) ? Board::E_BALCK : Board::E_WHITE;
+	int hasNeighbour = board.CheckNeighbourChessNum(row, col, oppnentSide, radius, 1);
+	return !hasNeighbour;
 }
 
 void Game::Print()
@@ -158,18 +231,36 @@ void Game::Print()
 	string stateText[] = { "Normal", "Black Win!", "White Win!", "Draw" };
 
 	printf("=== Current State: %s ===\n", stateText[state].c_str());
-	board.Print();
+	board.Print(lastMove);
+	cout << endl;
 }
 
-bool Game::IsWinThisTurn()
+int Game::GetSide()
 {
-	Int2 chess = record.back();
+	return (turn % 2 == 1) ? Board::E_BALCK : Board::E_WHITE;
+}
 
-	int maxLine_L_R = board.GetChessNumInLine(chess.x, chess.y, Board::E_L_R);
-	int maxLine_T_B = board.GetChessNumInLine(chess.x, chess.y, Board::E_T_B);
-	int maxLine_TL_BR = board.GetChessNumInLine(chess.x, chess.y, Board::E_TL_BR);
-	int maxLine_TR_BL = board.GetChessNumInLine(chess.x, chess.y, Board::E_TR_BL);
+bool Game::IsWinThisTurn(Int2 move)
+{
+	int maxLine_L_R = board.GetChessNumInLine(move.x, move.y, Board::E_L_R);
+	int maxLine_T_B = board.GetChessNumInLine(move.x, move.y, Board::E_T_B);
+	int maxLine_TL_BR = board.GetChessNumInLine(move.x, move.y, Board::E_TL_BR);
+	int maxLine_TR_BL = board.GetChessNumInLine(move.x, move.y, Board::E_TR_BL);
 	int maxInLine = max(maxLine_L_R, max(maxLine_T_B, max(maxLine_TL_BR, maxLine_TR_BL)));
 
 	return maxInLine >= WIN_COUNT;
+}
+
+Int2 Game::Str2Coord(const string &str)
+{
+	int row = str[0] - 'A';
+	int col = str[1] <= '9' ? str[1] - '1' : str[1] - 'a' + 9;
+	return Int2(row, col);
+}
+
+string Game::Coord2Str(Int2 coord)
+{
+	string result(1, coord.x + 'A');
+	result += (coord.y < 9) ? coord.y + '1' : coord.y + 'a' - 9;
+	return result;
 }
