@@ -46,10 +46,11 @@ public:
 	Board();
 
 	void Clear();
-	void Print();
+	void Print(Int2 lastChess);
 	int GetGrid(int row, int col);
 	bool SetGrid(int row, int col, short value);
 	int GetChessNumInLine(int row, int col, ChessDirection dir);
+	bool CheckNeighbourChessNum(int row, int col, int side, int radius, int num);
 
 	short grids[GRID_NUM];
 };
@@ -78,6 +79,7 @@ public:
 	Int2 GetLastMove() { return lastMove;}
 	int GetSide();
 	vector<Int2>& GetEmptyGrids() { return emptyGrids; }
+	bool IsLonelyGrid(int row, int col, int radius);
 
 	Game* Clone() { return new Game(*this);	}
 	void SetSimMode(bool value) { isSimMode = value; }

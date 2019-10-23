@@ -9,6 +9,7 @@ public:
 
 	int visit;
 	float value;
+	float score;
 	Game *game;
 
 	TreeNode *parent;
@@ -24,6 +25,7 @@ public:
 private:
 	TreeNode* TreePolicy(TreeNode *node);
 	TreeNode* ExpandTree(TreeNode *node);
+	bool PreExpandTree(TreeNode *node);
 	TreeNode* BestChild(TreeNode *node, float c);
 	float DefaultPolicy(TreeNode *node);
 	void UpdateValue(TreeNode *node, float value);

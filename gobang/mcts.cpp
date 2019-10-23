@@ -1,9 +1,11 @@
 #include <fstream>
 #include "mcts.h"
 #include "cmath"
+#include "ctime"
 
 const float Cp = 1 / sqrtf(2);
-const int TRY_COUNT = 10000;
+const int TRY_COUNT = 100000;
+const float TRY_TIME = 1.0f;
 
 TreeNode::TreeNode(TreeNode *p)
 {
@@ -20,16 +22,24 @@ Int2 MCTS::Search(Game *state)
 	root->game->SetSimMode(true);
 	root->emptyGrids = state->GetEmptyGrids();
 
-	for (int i = 0; i < TRY_COUNT; ++i)
+	clock_t startTime = clock();
+	int counter = 0;
+
+	while (++counter > 0)
 	{
 		TreeNode *node = TreePolicy(root);
 		float value = DefaultPolicy(node);
 		UpdateValue(node, value);
+
+		float elapedTime = float(clock() - startTime) / 1000;
+		if (elapedTime > TRY_TIME)
+			break;
 	}
 	
 	TreeNode *best = BestChild(root, 0);
 	Int2 move = best->game->GetLastMove();
-	PrintTree(root);
+	printf("time elapsed: %.2f, iteration count: %d\n", float(clock() - startTime) / 1000, counter);
+	//PrintTree(root);
 
 	ClearNodes(root);
 
@@ -40,7 +50,7 @@ TreeNode* MCTS::TreePolicy(TreeNode *node)
 {
 	while (node->game->GetState() == Game::E_NORMAL)
 	{
-		if (!node->emptyGrids.empty())
+		if (PreExpandTree(node))
 			return ExpandTree(node);
 		else
 			node = BestChild(node, Cp);
@@ -48,18 +58,42 @@ TreeNode* MCTS::TreePolicy(TreeNode *node)
 	return node;
 }
 
+bool MCTS::PreExpandTree(TreeNode *node)
+{
+	bool skipLonelyGrid = true;
+	if (skipLonelyGrid)
+	{
+		int radius = (node->game->GetTurn() < 20) ? 1 : 2;
+
+		while (!node->emptyGrids.empty())
+		{
+			int id = rand() % node->emptyGrids.size();
+			swap(node->emptyGrids[id], node->emptyGrids.back());
+			Int2 move = node->emptyGrids.back();
+
+			if (!node->game->IsLonelyGrid(move.x, move.y, radius))
+				break;
+
+			node->emptyGrids.pop_back();
+		}
+	}
+	else
+	{
+		int id = rand() % node->emptyGrids.size();
+		swap(node->emptyGrids[id], node->emptyGrids.back());
+	}
+	return !node->emptyGrids.empty();
+}
+
 TreeNode* MCTS::ExpandTree(TreeNode *node)
 {
+	Int2 move = node->emptyGrids.back();
+	node->emptyGrids.pop_back();
+
 	TreeNode *newNode = new TreeNode(node);
 	node->children.push_back(newNode);
 	newNode->game = node->game->Clone();
-
-	int id = rand() % node->emptyGrids.size();
-	swap(node->emptyGrids[id], node->emptyGrids.back());
-	Int2 move = node->emptyGrids.back();
-	node->emptyGrids.pop_back();
 	newNode->game->PutChess(move.x, move.y);
-
 	newNode->emptyGrids = newNode->game->GetEmptyGrids();
 
 	return newNode;
@@ -72,6 +106,7 @@ TreeNode* MCTS::BestChild(TreeNode *node, float c)
 	for (auto child : node->children)
 	{
 		float score = CalcScore(child, c);
+		child->score = score;
 		if (score > bestScore)
 		{
 			bestScore = score;
@@ -83,7 +118,7 @@ TreeNode* MCTS::BestChild(TreeNode *node, float c)
 
 float MCTS::CalcScore(const TreeNode *node, float c)
 {
-	return (float)node->value / node->visit + c * sqrtf(2 * logf(node->parent->visit) / node->visit);
+	return (float)node->value / node->visit + c * sqrtf(logf(node->parent->visit) / node->visit);
 }
 
 float MCTS::DefaultPolicy(TreeNode *node)

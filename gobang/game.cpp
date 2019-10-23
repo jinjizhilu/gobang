@@ -17,7 +17,7 @@ void Board::Clear()
 	}
 }
 
-void Board::Print()
+void Board::Print(Int2 lastChess)
 {
 	cout << " ";
 	for (int i = 1; i <= BOARD_SIZE; ++i)
@@ -35,6 +35,12 @@ void Board::Print()
 
 		for (int j = 0; j < BOARD_SIZE; ++j)
 		{
+			if (i == lastChess.x && j == lastChess.y)
+			{
+				cout << "X ";
+				continue;
+			}
+
 			int grid = GetGrid(i, j);
 
 			if (grid == E_EMPTY)
@@ -43,11 +49,11 @@ void Board::Print()
 			}
 			if (grid == E_BALCK)
 			{
-				cout << "O ";
+				cout << "@ ";
 			}
 			if (grid == E_WHITE)
 			{
-				cout << "@ ";
+				cout << "O ";
 			}
 		}
 		cout << endl;
@@ -113,6 +119,23 @@ int Board::GetChessNumInLine(int row, int col, ChessDirection dir)
 	--count;
 
 	return count;
+}
+
+bool Board::CheckNeighbourChessNum(int row, int col, int side, int radius, int num)
+{
+	int count = 0;
+	for (int i = row - radius; i <= row + radius; ++i)
+	{
+		for (int j = col - radius; j <= col + radius; ++j)
+		{
+			if (GetGrid(i, j) == side)
+			{
+				if (++count >= num)
+					return true;
+			}
+		}
+	}
+	return false;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -196,12 +219,19 @@ void Game::UpdateEmptyGrids()
 	}
 }
 
+bool Game::IsLonelyGrid(int row, int col, int radius)
+{
+	int oppnentSide = ((turn + 1) % 2 == 1) ? Board::E_BALCK : Board::E_WHITE;
+	int hasNeighbour = board.CheckNeighbourChessNum(row, col, oppnentSide, radius, 1);
+	return !hasNeighbour;
+}
+
 void Game::Print()
 {
 	string stateText[] = { "Normal", "Black Win!", "White Win!", "Draw" };
 
 	printf("=== Current State: %s ===\n", stateText[state].c_str());
-	board.Print();
+	board.Print(lastMove);
 	cout << endl;
 }
 
@@ -231,6 +261,6 @@ Int2 Game::Str2Coord(const string &str)
 string Game::Coord2Str(Int2 coord)
 {
 	string result(1, coord.x + 'A');
-	result += (coord.y <= 9) ? coord.y + '1' : coord.y + 'a' - 9;
+	result += (coord.y < 9) ? coord.y + '1' : coord.y + 'a' - 9;
 	return result;
 }
