@@ -121,7 +121,7 @@ int Board::GetChessNumInLine(int row, int col, ChessDirection dir)
 	return count;
 }
 
-bool Board::CheckNeighbourChessNum(int row, int col, int side, int radius, int num)
+bool Board::CheckNeighbourChessNumWithSide(int row, int col, int side, int radius, int num)
 {
 	int count = 0;
 	for (int i = row - radius; i <= row + radius; ++i)
@@ -129,6 +129,24 @@ bool Board::CheckNeighbourChessNum(int row, int col, int side, int radius, int n
 		for (int j = col - radius; j <= col + radius; ++j)
 		{
 			if (GetGrid(i, j) == side)
+			{
+				if (++count >= num)
+					return true;
+			}
+		}
+	}
+	return false;
+}
+
+bool Board::CheckNeighbourChessNum(int row, int col, int radius, int num)
+{
+	int count = 0;
+	for (int i = row - radius; i <= row + radius; ++i)
+	{
+		for (int j = col - radius; j <= col + radius; ++j)
+		{
+			int grid = GetGrid(i, j);
+			if (grid != E_INVALID && grid != E_EMPTY)
 			{
 				if (++count >= num)
 					return true;
@@ -221,8 +239,8 @@ void Game::UpdateEmptyGrids()
 
 bool Game::IsLonelyGrid(int row, int col, int radius)
 {
-	int oppnentSide = ((turn + 1) % 2 == 1) ? Board::E_BALCK : Board::E_WHITE;
-	int hasNeighbour = board.CheckNeighbourChessNum(row, col, oppnentSide, radius, 1);
+	//int oppnentSide = ((turn + 1) % 2 == 1) ? Board::E_BALCK : Board::E_WHITE;
+	int hasNeighbour = board.CheckNeighbourChessNum(row, col, radius, 1);
 	return !hasNeighbour;
 }
 

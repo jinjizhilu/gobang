@@ -50,7 +50,8 @@ public:
 	int GetGrid(int row, int col);
 	bool SetGrid(int row, int col, short value);
 	int GetChessNumInLine(int row, int col, ChessDirection dir);
-	bool CheckNeighbourChessNum(int row, int col, int side, int radius, int num);
+	bool CheckNeighbourChessNumWithSide(int row, int col, int side, int radius, int num);
+	bool CheckNeighbourChessNum(int row, int col, int radius, int num);
 
 	short grids[GRID_NUM];
 };

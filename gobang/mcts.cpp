@@ -38,8 +38,8 @@ Int2 MCTS::Search(Game *state)
 	
 	TreeNode *best = BestChild(root, 0);
 	Int2 move = best->game->GetLastMove();
-	printf("time elapsed: %.2f, iteration count: %d\n", float(clock() - startTime) / 1000, counter);
-	//PrintTree(root);
+	printf("time elapsed: %.2f, iteration count: %d, win rate: %d/%d\n", float(clock() - startTime) / 1000, counter, (int)best->value, best->visit);
+	PrintTree(root);
 
 	ClearNodes(root);
 
@@ -166,16 +166,19 @@ void MCTS::PrintTree(TreeNode *node, int level)
 		return a->visit > b->visit;
 	});
 
-	int i = 0;
+	int i = 1;
 	for (auto it = node->children.begin(); it != node->children.end(); ++it)
 	{
-		for (int j = 0; j < level; ++j)
-			cout << "   ";
+		if ((float)(*it)->visit / root->visit > 0.005)
+		{
+			for (int j = 0; j < level; ++j)
+				cout << "   ";
 
-		printf("visit: %d, value: %.0f, score: %.4f\n", (*it)->visit, (*it)->value, CalcScore(*it, Cp));
-		PrintTree(*it, level + 1);
+			printf("visit: %d, value: %.0f, score: %.4f, children: %d\n", (*it)->visit, (*it)->value, CalcScore(*it, Cp), (*it)->children.size());
+			PrintTree(*it, level + 1);
+		}
 
-		if (++i > 5)
+		if (++i > 3)
 			break;
 	}
 }
