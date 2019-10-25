@@ -30,6 +30,7 @@ Int2 MCTS::Search(Game *state)
 		TreeNode *node = TreePolicy(root);
 		float value = DefaultPolicy(node);
 		UpdateValue(node, value);
+		PruneTree(node);
 
 		float elapedTime = float(clock() - startTime) / 1000;
 		if (elapedTime > TRY_TIME)
@@ -97,6 +98,26 @@ TreeNode* MCTS::ExpandTree(TreeNode *node)
 	newNode->emptyGrids = newNode->game->GetEmptyGrids();
 
 	return newNode;
+}
+
+bool MCTS::PruneTree(TreeNode *node)
+{
+	// if game finishes on this node, just discard its parent node which should not be chosen
+	if (node->game->GetState() != Game::E_NORMAL)
+	{
+		TreeNode *parentNode = node->parent;
+		if (parentNode != root)
+		{
+			// do not delete last node when failure is inevitable
+			if (parentNode->parent->children.size() > 1)
+			{
+				parentNode->parent->children.remove(parentNode);
+				ClearNodes(parentNode);
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 TreeNode* MCTS::BestChild(TreeNode *node, float c)

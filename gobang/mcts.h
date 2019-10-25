@@ -23,12 +23,17 @@ public:
 	Int2 Search(Game *state);
 
 private:
+	// standard MCTS process
 	TreeNode* TreePolicy(TreeNode *node);
 	TreeNode* ExpandTree(TreeNode *node);
-	bool PreExpandTree(TreeNode *node);
 	TreeNode* BestChild(TreeNode *node, float c);
 	float DefaultPolicy(TreeNode *node);
 	void UpdateValue(TreeNode *node, float value);
+
+	// custom optimization
+	bool PreExpandTree(TreeNode *node);
+	bool PruneTree(TreeNode *node);
+
 	void ClearNodes(TreeNode *node);
 	float CalcScore(const TreeNode *node, float c);
 	void PrintTree(TreeNode *node, int level = 0);

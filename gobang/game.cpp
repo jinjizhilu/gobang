@@ -222,6 +222,7 @@ void Game::Regret(int step)
 	while (!isSimMode && !record.empty() && --step >= 0)
 	{
 		--turn;
+		emptyGrids.push_back(record.back());
 		board.SetGrid(record.back().x, record.back().y, Board::E_EMPTY);
 		record.pop_back();
 	}
