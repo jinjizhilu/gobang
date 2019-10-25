@@ -15,12 +15,20 @@ TreeNode::TreeNode(TreeNode *p)
 	parent = p;
 }
 
+MCTS::MCTS()
+{
+	root = NULL;
+}
+
 Int2 MCTS::Search(Game *state)
 {
-	root = new TreeNode(NULL);
-	root->game = state->Clone();
-	root->game->SetSimMode(true);
-	root->emptyGrids = state->GetEmptyGrids();
+	if (root == NULL || !ReuseOldTree(state))
+	{
+		root = new TreeNode(NULL);
+		root->game = state->Clone();
+		root->game->SetSimMode(true);
+		root->emptyGrids = state->GetEmptyGrids();
+	}
 
 	clock_t startTime = clock();
 	int counter = 0;
@@ -42,7 +50,10 @@ Int2 MCTS::Search(Game *state)
 	printf("time elapsed: %.2f, iteration count: %d, win rate: %d/%d\n", float(clock() - startTime) / 1000, counter, (int)best->value, best->visit);
 	PrintTree(root);
 
-	ClearNodes(root);
+	if (best->visit == best->value)
+	{
+		ClearNodes(root);
+	}
 
 	return move;
 }
@@ -170,6 +181,35 @@ void MCTS::UpdateValue(TreeNode *node, float value)
 		node->value += value;
 		node = node->parent;
 	}
+}
+
+bool MCTS::ReuseOldTree(Game *state)
+{
+	Int2 lastSelfMove = state->GetRecord()[state->GetTurn() - 3];
+	Int2 lastOpponentMove = state->GetLastMove();
+
+	TreeNode *foundNode = NULL;
+	for (auto node : root->children)
+	{
+		if (node->game->GetLastMove() == lastSelfMove)
+		{
+			for (auto child : node->children)
+			{
+				if (child->game->GetLastMove() == lastOpponentMove)
+				{
+					foundNode = child;
+					foundNode->parent = NULL;
+					node->children.remove(foundNode);
+					break;
+				}
+			}
+			break;
+		}
+	}
+	ClearNodes(root);
+	root = foundNode;
+
+	return (root != NULL);
 }
 
 void MCTS::ClearNodes(TreeNode *node)

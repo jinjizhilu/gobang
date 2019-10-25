@@ -82,6 +82,7 @@ public:
 	int GetSide();
 	vector<Int2>& GetEmptyGrids() { return emptyGrids; }
 	bool IsLonelyGrid(int row, int col, int radius);
+	const vector<Int2>& GetRecord() { return record; }
 
 	Game* Clone() { return new Game(*this);	}
 	void SetSimMode(bool value) { isSimMode = value; }
