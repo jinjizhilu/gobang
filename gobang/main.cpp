@@ -14,11 +14,25 @@ void main()
 	{
 		g.Print();
 
-		cout << "Enter your move: ";
-		cin >> input;
-		
-		move = Game::Str2Coord(input);
-		g.PutChess(move.x, move.y);
+		while (1)
+		{
+			cout << "Enter your move: ";
+			cin >> input;
+
+			if (input == "undo" && g.GetTurn() > 2)
+			{
+				g.Regret(2);
+				g.Print();
+				continue;
+			}
+
+			move = Game::Str2Coord(input);
+			if (g.PutChess(move.x, move.y))
+				break;
+
+			cout << "!Invalid move!" << endl;
+		}
+
 		g.Print();
 		if (g.GetState() != Game::E_NORMAL)
 			break;

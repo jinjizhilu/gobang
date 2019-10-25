@@ -217,6 +217,18 @@ bool Game::PutRandomChess()
 	return PutChess(grid.x, grid.y);
 }
 
+void Game::Regret(int step)
+{
+	while (!isSimMode && !record.empty() && --step >= 0)
+	{
+		--turn;
+		board.SetGrid(record.back().x, record.back().y, Board::E_EMPTY);
+		record.pop_back();
+	}
+
+	lastMove = record.empty() ? Int2() : record.back();
+}
+
 void Game::UpdateEmptyGrids()
 {
 	if (emptyGrids.back() == lastMove)

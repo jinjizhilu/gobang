@@ -118,7 +118,13 @@ TreeNode* MCTS::BestChild(TreeNode *node, float c)
 
 float MCTS::CalcScore(const TreeNode *node, float c)
 {
-	return (float)node->value / node->visit + c * sqrtf(logf(node->parent->visit) / node->visit);
+	float winRate = (float)node->value / node->visit;
+	float expandFactor = c * sqrtf(logf(node->parent->visit) / node->visit);
+
+	if (node->game->GetSide() == root->game->GetSide()) // win rate of opponent
+		winRate = 1 - winRate;
+
+	return winRate + expandFactor;
 }
 
 float MCTS::DefaultPolicy(TreeNode *node)

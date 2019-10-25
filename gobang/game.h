@@ -71,6 +71,7 @@ public:
 	void Init();
 	bool PutChess(int row, int col);
 	bool PutRandomChess();
+	void Regret(int step = 2);
 	void Print();
 	int GetState() { return state; }
 	static Int2 Str2Coord(const string &str);
