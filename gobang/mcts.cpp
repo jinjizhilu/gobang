@@ -20,12 +20,17 @@ MCTS::MCTS()
 	root = NULL;
 }
 
+MCTS::~MCTS()
+{
+	ClearPool();
+}
+
 Int2 MCTS::Search(Game *state)
 {
 	if (root == NULL || !ReuseOldTree(state))
 	{
-		root = new TreeNode(NULL);
-		root->game = state->Clone();
+		root = NewTreeNode(NULL);
+		*(root->game) = *state;
 		root->game->SetSimMode(true);
 		root->emptyGrids = state->GetEmptyGrids();
 	}
@@ -102,9 +107,9 @@ TreeNode* MCTS::ExpandTree(TreeNode *node)
 	Int2 move = node->emptyGrids.back();
 	node->emptyGrids.pop_back();
 
-	TreeNode *newNode = new TreeNode(node);
+	TreeNode *newNode = NewTreeNode(node);
 	node->children.push_back(newNode);
-	newNode->game = node->game->Clone();
+	*(newNode->game) = *(node->game);
 	newNode->game->PutChess(move.x, move.y);
 	newNode->emptyGrids = newNode->game->GetEmptyGrids();
 
@@ -220,6 +225,40 @@ void MCTS::ClearNodes(TreeNode *node)
 		{
 			ClearNodes(child);
 		}
+
+		RecycleTreeNode(node);
+	}
+}
+
+TreeNode* MCTS::NewTreeNode(TreeNode *parent)
+{
+	if (pool.empty())
+	{
+		TreeNode *node = new TreeNode(parent);
+		node->game = new Game();
+		return node;
+	}
+
+	TreeNode *node = pool.back();
+	node->parent = parent;
+	pool.pop_back();
+
+	return node;
+}
+
+void MCTS::RecycleTreeNode(TreeNode *node)
+{
+	node->parent = NULL;
+	node->children.clear();
+	node->emptyGrids.clear();
+
+	pool.push_back(node);
+}
+
+void MCTS::ClearPool()
+{
+	for (auto node : pool)
+	{
 		delete node->game;
 		delete node;
 	}

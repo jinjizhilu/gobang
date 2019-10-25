@@ -21,6 +21,7 @@ class MCTS
 {
 public:
 	MCTS();
+	~MCTS();
 	Int2 Search(Game *state);
 
 private:
@@ -39,6 +40,11 @@ private:
 	void ClearNodes(TreeNode *node);
 	float CalcScore(const TreeNode *node, float c);
 	void PrintTree(TreeNode *node, int level = 0);
+
+	TreeNode* NewTreeNode(TreeNode *parent);
+	void RecycleTreeNode(TreeNode *node);
+	void ClearPool();
 	
+	list<TreeNode*> pool;
 	TreeNode *root;
 };
