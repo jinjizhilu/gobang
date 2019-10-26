@@ -1,8 +1,11 @@
 #include "game.h"
 #include "mcts.h"
+#include "ctime"
 
 void main()
 {
+	srand((unsigned)time(NULL));
+
 	MCTS ai;
 	Game g;
 	string input;

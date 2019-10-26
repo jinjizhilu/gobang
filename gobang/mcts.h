@@ -38,7 +38,7 @@ private:
 	bool ReuseOldTree(Game *state);
 
 	void ClearNodes(TreeNode *node);
-	float CalcScore(const TreeNode *node, float c);
+	float CalcScore(const TreeNode *node, float c, float logParentVisit);
 	void PrintTree(TreeNode *node, int level = 0);
 
 	TreeNode* NewTreeNode(TreeNode *parent);

@@ -6,6 +6,10 @@
 const float Cp = 1 / sqrtf(2);
 const int TRY_COUNT = 100000;
 const float TRY_TIME = 1.0f;
+const int FAST_STOP_STEP = 50;
+
+int counter1 = 0;
+int counter2 = 0;
 
 TreeNode::TreeNode(TreeNode *p)
 {
@@ -53,6 +57,7 @@ Int2 MCTS::Search(Game *state)
 	TreeNode *best = BestChild(root, 0);
 	Int2 move = best->game->GetLastMove();
 	printf("time elapsed: %.2f, iteration count: %d, win rate: %d/%d\n", float(clock() - startTime) / 1000, counter, (int)best->value, best->visit);
+	cout << counter1 << " " << counter2 << endl;
 	PrintTree(root);
 
 	if (best->visit == best->value)
@@ -140,9 +145,10 @@ TreeNode* MCTS::BestChild(TreeNode *node, float c)
 {
 	TreeNode *result = NULL;
 	float bestScore = -1;
+	float logParentVisit = logf(node->visit);
 	for (auto child : node->children)
 	{
-		float score = CalcScore(child, c);
+		float score = CalcScore(child, c, logParentVisit);
 		child->score = score;
 		if (score > bestScore)
 		{
@@ -153,10 +159,10 @@ TreeNode* MCTS::BestChild(TreeNode *node, float c)
 	return result;
 }
 
-float MCTS::CalcScore(const TreeNode *node, float c)
+float MCTS::CalcScore(const TreeNode *node, float c, float logParentVisit)
 {
 	float winRate = (float)node->value / node->visit;
-	float expandFactor = c * sqrtf(logf(node->parent->visit) / node->visit);
+	float expandFactor = c * sqrtf(logParentVisit / node->visit);
 
 	if (node->game->GetSide() == root->game->GetSide()) // win rate of opponent
 		winRate = 1 - winRate;
@@ -166,14 +172,23 @@ float MCTS::CalcScore(const TreeNode *node, float c)
 
 float MCTS::DefaultPolicy(TreeNode *node)
 {
+	int step = 0;
 	Game *newGame = node->game->Clone();
-	while (newGame->GetState() == Game::E_NORMAL)
+	while (newGame->GetState() == Game::E_NORMAL && ++step < FAST_STOP_STEP)
 	{
 		newGame->PutRandomChess();
 	}
 
 	float value = (newGame->GetState() == root->game->GetSide()) ? 1.f : 0;
 	delete newGame;
+
+	// just return random result, since random walk result too far away is not accurate at all
+	if (step >= FAST_STOP_STEP)
+	{
+		value = rand() % 2;
+		counter1 += value;
+		counter2 += (1 - value);
+	}
 
 	return value;
 }
@@ -268,7 +283,6 @@ void MCTS::PrintTree(TreeNode *node, int level)
 {
 	node->children.sort([this](const TreeNode *a, const TreeNode *b)
 	{
-		//return CalcScore(a, 0) > CalcScore(b, 0);
 		return a->visit > b->visit;
 	});
 
@@ -280,7 +294,8 @@ void MCTS::PrintTree(TreeNode *node, int level)
 			for (int j = 0; j < level; ++j)
 				cout << "   ";
 
-			printf("visit: %d, value: %.0f, score: %.4f, children: %d\n", (*it)->visit, (*it)->value, CalcScore(*it, Cp), (*it)->children.size());
+			float logParentVisit = logf(node->visit);
+			printf("visit: %d, value: %.0f, score: %.4f, children: %d\n", (*it)->visit, (*it)->value, CalcScore(*it, Cp, logParentVisit), (*it)->children.size());
 			PrintTree(*it, level + 1);
 		}
 

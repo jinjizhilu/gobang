@@ -1,6 +1,5 @@
 #include "game.h"
 #include <cstdlib>
-#include <ctime>
 
 #define max(a, b) ((a > b) ? a : b)
 
@@ -160,7 +159,6 @@ bool Board::CheckNeighbourChessNum(int row, int col, int radius, int num)
 
 Game::Game()
 {
-	srand((unsigned)time(NULL));
 	Init();
 }
 
