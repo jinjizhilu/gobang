@@ -9,7 +9,7 @@ void main()
 	MCTS ai;
 	Game g;
 	string input;
-	Int2 move;
+	int move;
 	
 	bool useAI = true;
 
@@ -29,9 +29,12 @@ void main()
 				continue;
 			}
 
-			move = Game::Str2Coord(input);
-			if (g.PutChess(move.x, move.y))
-				break;
+			move = Game::Str2Id(input);
+			if (move != -1)
+			{
+				if (g.PutChess(move))
+					break;
+			}
 
 			cout << "!Invalid move!" << endl;
 		}
@@ -43,9 +46,9 @@ void main()
 		if (useAI)
 		{
 			cout << "AI is thinking..." << endl;
-			Int2 aiMove = ai.Search(&g);
-			cout << "AI's move: " << Game::Coord2Str(aiMove) << endl;
-			g.PutChess(aiMove.x, aiMove.y);
+			int aiMove = ai.Search(&g);
+			cout << "AI's move: " << Game::Id2Str(aiMove) << endl;
+			g.PutChess(aiMove);
 		}
 	}
 	g.Print();

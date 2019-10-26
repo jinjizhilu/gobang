@@ -6,6 +6,7 @@ class TreeNode
 {
 public:
 	TreeNode(TreeNode *p);
+	void Clear();
 
 	int visit;
 	float value;
@@ -14,7 +15,7 @@ public:
 
 	TreeNode *parent;
 	list<TreeNode*> children;
-	vector<Int2> emptyGrids;
+	vector<uint8_t> emptyGrids;
 };
 
 class MCTS
@@ -22,7 +23,7 @@ class MCTS
 public:
 	MCTS();
 	~MCTS();
-	Int2 Search(Game *state);
+	int Search(Game *state);
 
 private:
 	// standard MCTS process

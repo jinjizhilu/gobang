@@ -6,15 +6,13 @@
 const float Cp = 1 / sqrtf(2);
 const int TRY_COUNT = 100000;
 const float TRY_TIME = 1.0f;
-const int FAST_STOP_STEP = 50;
-
-int counter1 = 0;
-int counter2 = 0;
+const int FAST_STOP_STEP = 30;
 
 TreeNode::TreeNode(TreeNode *p)
 {
 	visit = 0;
 	value = 0;
+	score = 0;
 	game = NULL;
 	parent = p;
 }
@@ -29,7 +27,7 @@ MCTS::~MCTS()
 	ClearPool();
 }
 
-Int2 MCTS::Search(Game *state)
+int MCTS::Search(Game *state)
 {
 	if (root == NULL || !ReuseOldTree(state))
 	{
@@ -55,12 +53,11 @@ Int2 MCTS::Search(Game *state)
 	}
 	
 	TreeNode *best = BestChild(root, 0);
-	Int2 move = best->game->GetLastMove();
+	int move = best->game->GetLastMove();
 	printf("time elapsed: %.2f, iteration count: %d, win rate: %d/%d\n", float(clock() - startTime) / 1000, counter, (int)best->value, best->visit);
-	cout << counter1 << " " << counter2 << endl;
 	PrintTree(root);
 
-	if (best->visit == best->value)
+	if (best->game->GetState() != Game::E_NORMAL)
 	{
 		ClearNodes(root);
 	}
@@ -91,9 +88,9 @@ bool MCTS::PreExpandTree(TreeNode *node)
 		{
 			int id = rand() % node->emptyGrids.size();
 			swap(node->emptyGrids[id], node->emptyGrids.back());
-			Int2 move = node->emptyGrids.back();
+			int move = node->emptyGrids.back();
 
-			if (!node->game->IsLonelyGrid(move.x, move.y, radius))
+			if (!node->game->IsLonelyGrid(move, radius))
 				break;
 
 			node->emptyGrids.pop_back();
@@ -109,13 +106,13 @@ bool MCTS::PreExpandTree(TreeNode *node)
 
 TreeNode* MCTS::ExpandTree(TreeNode *node)
 {
-	Int2 move = node->emptyGrids.back();
+	int move = node->emptyGrids.back();
 	node->emptyGrids.pop_back();
 
 	TreeNode *newNode = NewTreeNode(node);
 	node->children.push_back(newNode);
 	*(newNode->game) = *(node->game);
-	newNode->game->PutChess(move.x, move.y);
+	newNode->game->PutChess(move);
 	newNode->emptyGrids = newNode->game->GetEmptyGrids();
 
 	return newNode;
@@ -186,8 +183,6 @@ float MCTS::DefaultPolicy(TreeNode *node)
 	if (step >= FAST_STOP_STEP)
 	{
 		value = rand() % 2;
-		counter1 += value;
-		counter2 += (1 - value);
 	}
 
 	return value;
@@ -205,8 +200,8 @@ void MCTS::UpdateValue(TreeNode *node, float value)
 
 bool MCTS::ReuseOldTree(Game *state)
 {
-	Int2 lastSelfMove = state->GetRecord()[state->GetTurn() - 3];
-	Int2 lastOpponentMove = state->GetLastMove();
+	int lastSelfMove = state->GetRecord()[state->GetTurn() - 3];
+	int lastOpponentMove = state->GetLastMove();
 
 	TreeNode *foundNode = NULL;
 	for (auto node : root->children)
@@ -264,6 +259,9 @@ TreeNode* MCTS::NewTreeNode(TreeNode *parent)
 void MCTS::RecycleTreeNode(TreeNode *node)
 {
 	node->parent = NULL;
+	node->visit = 0;
+	node->value = 0;
+	node->score = 0;
 	node->children.clear();
 	node->emptyGrids.clear();
 
@@ -289,7 +287,7 @@ void MCTS::PrintTree(TreeNode *node, int level)
 	int i = 1;
 	for (auto it = node->children.begin(); it != node->children.end(); ++it)
 	{
-		if ((float)(*it)->visit / root->visit > 0.005)
+		if ((float)(*it)->visit / root->visit > 0.001)
 		{
 			for (int j = 0; j < level; ++j)
 				cout << "   ";
