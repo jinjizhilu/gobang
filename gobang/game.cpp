@@ -191,10 +191,10 @@ void Game::Init()
 	state = E_NORMAL;
 	isSimMode = false;
 	
-	emptyGrids.clear();
+	emptyGridCount = GRID_NUM;
 	for (int i = 0; i < GRID_NUM; ++i)
 	{
-		emptyGrids.push_back(i);
+		emptyGrids[i] = i;
 	}
 }
 
@@ -225,9 +225,9 @@ bool Game::PutChess(int id)
 
 bool Game::PutRandomChess()
 {
-	int id = rand() % emptyGrids.size();
-	swap(emptyGrids[id], emptyGrids.back());
-	int gridId = emptyGrids.back();
+	int id = rand() % emptyGridCount;
+	swap(emptyGrids[id], emptyGrids[emptyGridCount - 1]);
+	int gridId = emptyGrids[emptyGridCount - 1];
 
 	return PutChess(gridId);
 }
@@ -237,7 +237,7 @@ void Game::Regret(int step)
 	while (!isSimMode && !record.empty() && --step >= 0)
 	{
 		--turn;
-		emptyGrids.push_back(record.back());
+		emptyGrids[emptyGridCount++] = record.back();
 		board.grids[record.back()] = Board::E_EMPTY;
 		record.pop_back();
 	}
@@ -247,9 +247,9 @@ void Game::Regret(int step)
 
 void Game::UpdateEmptyGrids()
 {
-	if (emptyGrids.back() == lastMove)
+	if (emptyGrids[emptyGridCount - 1] == lastMove)
 	{
-		emptyGrids.pop_back();
+		--emptyGridCount;
 	}
 	else
 	{
@@ -257,8 +257,8 @@ void Game::UpdateEmptyGrids()
 		{
 			if (emptyGrids[i] == lastMove)
 			{
-				swap(emptyGrids[i], emptyGrids.back());
-				emptyGrids.pop_back();
+				swap(emptyGrids[i], emptyGrids[emptyGridCount - 1]);
+				--emptyGridCount;
 				break;
 			}
 		}

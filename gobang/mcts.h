@@ -13,11 +13,12 @@ public:
 	float score;
 	float winRate;
 	float expandFactor;
+	int emptyGridCount;
 	Game *game;
 
 	TreeNode *parent;
 	list<TreeNode*> children;
-	vector<uint8_t> emptyGrids;
+	array<uint8_t, GRID_NUM> emptyGrids;
 };
 
 class MCTS

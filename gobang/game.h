@@ -76,7 +76,8 @@ public:
 	int GetTurn() { return turn; }
 	int GetLastMove() { return lastMove;}
 	int GetSide();
-	vector<uint8_t>& GetEmptyGrids() { return emptyGrids; }
+	int GetEmptyGridCount() { return emptyGridCount; }
+	array<uint8_t, GRID_NUM>& GetEmptyGrids() { return emptyGrids; }
 	bool IsLonelyGrid(int id, int radius);
 	const vector<uint8_t>& GetRecord() { return record; }
 
@@ -92,7 +93,8 @@ private:
 	int state;
 	int turn;
 	int lastMove;
+	int emptyGridCount;
 	vector<uint8_t> record;
-	vector<uint8_t> emptyGrids;
+	array<uint8_t, GRID_NUM> emptyGrids;
 };
 
