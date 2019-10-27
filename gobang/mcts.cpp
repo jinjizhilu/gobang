@@ -2,8 +2,10 @@
 #include "mcts.h"
 #include "cmath"
 #include "ctime"
+#include "cstdlib"
 
-const float Cp = 1 / sqrtf(2);
+const char* LOG_FILE = "MCTS.log";
+const float Cp = 1 / sqrtf(1);
 const float TRY_TIME = 1.0f;
 const int FAST_STOP_STEP = 30;
 const bool USE_OLD_TREE = true;
@@ -20,9 +22,15 @@ TreeNode::TreeNode(TreeNode *p)
 	parent = p;
 }
 
+FILE *fp;
+
 MCTS::MCTS()
 {
 	root = NULL;
+
+	// clear log file
+	fopen_s(&fp, LOG_FILE, "w");
+	fclose(fp);
 }
 
 MCTS::~MCTS()
@@ -297,6 +305,12 @@ void MCTS::ClearPool()
 
 void MCTS::PrintTree(TreeNode *node, int level)
 {
+	if (level == 0)
+	{
+		fopen_s(&fp, LOG_FILE, "a+");
+		fprintf(fp, "===============================PrintTree=============================\n");
+	}
+
 	node->children.sort([this](const TreeNode *a, const TreeNode *b)
 	{
 		return a->visit > b->visit;
@@ -305,18 +319,24 @@ void MCTS::PrintTree(TreeNode *node, int level)
 	int i = 1;
 	for (auto it = node->children.begin(); it != node->children.end(); ++it)
 	{
-		if ((float)(*it)->visit / root->visit > 0.001 || i == 1)
+		if ((float)(*it)->visit / root->visit > 0.000)
 		{
-			cout << level;
+			fprintf(fp, "%d", level);
 			for (int j = 0; j < level; ++j)
-				cout << "   ";
+				fprintf(fp, "   ");
 
 			float expandFactorParent = sqrtf(logf(node->visit));
-			printf("visit: %d, value: %.0f, score: %.4f, children: %d\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, Cp, expandFactorParent), (*it)->children.size());
+			fprintf(fp, "visit: %d, value: %.0f, score: %.4f, children: %d\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, Cp, expandFactorParent), (*it)->children.size());
 			PrintTree(*it, level + 1);
 		}
 
 		if (++i > 3)
 			break;
+	}
+
+	if (level == 0)
+	{
+		fprintf(fp,"================================TreeEnd============================\n\n");
+		fclose(fp);
 	}
 }
