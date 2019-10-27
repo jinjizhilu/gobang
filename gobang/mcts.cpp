@@ -4,15 +4,17 @@
 #include "ctime"
 
 const float Cp = 1 / sqrtf(2);
-const int TRY_COUNT = 100000;
 const float TRY_TIME = 1.0f;
-const int FAST_STOP_STEP = 30;
+const int FAST_STOP_STEP = 20;
+const bool USE_OLD_TREE = true;
 
 TreeNode::TreeNode(TreeNode *p)
 {
 	visit = 0;
 	value = 0;
 	score = 0;
+	winRate = 0;
+	expandFactor = 0;
 	game = NULL;
 	parent = p;
 }
@@ -29,7 +31,7 @@ MCTS::~MCTS()
 
 int MCTS::Search(Game *state)
 {
-	if (root == NULL || !ReuseOldTree(state))
+	if (root == NULL || !(USE_OLD_TREE && ReuseOldTree(state)))
 	{
 		root = NewTreeNode(NULL);
 		*(root->game) = *state;
@@ -142,10 +144,10 @@ TreeNode* MCTS::BestChild(TreeNode *node, float c)
 {
 	TreeNode *result = NULL;
 	float bestScore = -1;
-	float logParentVisit = logf(node->visit);
+	float expandFactorParent = sqrtf(logf(node->visit));
 	for (auto child : node->children)
 	{
-		float score = CalcScore(child, c, logParentVisit);
+		float score = CalcScoreFast(child, c, expandFactorParent);
 		child->score = score;
 		if (score > bestScore)
 		{
@@ -165,6 +167,11 @@ float MCTS::CalcScore(const TreeNode *node, float c, float logParentVisit)
 		winRate = 1 - winRate;
 
 	return winRate + expandFactor;
+}
+
+float MCTS::CalcScoreFast(const TreeNode *node, float c, float expandFactorParent)
+{
+	return node->winRate + node->expandFactor * expandFactorParent * c;
 }
 
 float MCTS::DefaultPolicy(TreeNode *node)
@@ -194,6 +201,12 @@ void MCTS::UpdateValue(TreeNode *node, float value)
 	{
 		node->visit++;
 		node->value += value;
+
+		node->expandFactor = sqrtf(1.f / node->visit);
+		node->winRate = node->value / node->visit;
+		if (node->game->GetSide() == root->game->GetSide()) // win rate of opponent
+			node->winRate = 1 - node->winRate;
+
 		node = node->parent;
 	}
 }
@@ -262,6 +275,8 @@ void MCTS::RecycleTreeNode(TreeNode *node)
 	node->visit = 0;
 	node->value = 0;
 	node->score = 0;
+	node->winRate = 0;
+	node->expandFactor = 0;
 	node->children.clear();
 	node->emptyGrids.clear();
 
@@ -292,8 +307,8 @@ void MCTS::PrintTree(TreeNode *node, int level)
 			for (int j = 0; j < level; ++j)
 				cout << "   ";
 
-			float logParentVisit = logf(node->visit);
-			printf("visit: %d, value: %.0f, score: %.4f, children: %d\n", (*it)->visit, (*it)->value, CalcScore(*it, Cp, logParentVisit), (*it)->children.size());
+			float expandFactorParent = sqrtf(logf(node->visit));
+			printf("visit: %d, value: %.0f, score: %.4f, children: %d\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, Cp, expandFactorParent), (*it)->children.size());
 			PrintTree(*it, level + 1);
 		}
 

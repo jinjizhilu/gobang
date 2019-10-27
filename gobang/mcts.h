@@ -11,6 +11,8 @@ public:
 	int visit;
 	float value;
 	float score;
+	float winRate;
+	float expandFactor;
 	Game *game;
 
 	TreeNode *parent;
@@ -40,6 +42,7 @@ private:
 
 	void ClearNodes(TreeNode *node);
 	float CalcScore(const TreeNode *node, float c, float logParentVisit);
+	float CalcScoreFast(const TreeNode *node, float c, float expandFactorParent);
 	void PrintTree(TreeNode *node, int level = 0);
 
 	TreeNode* NewTreeNode(TreeNode *parent);

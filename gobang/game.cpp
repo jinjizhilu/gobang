@@ -5,7 +5,7 @@
 
 Board::Board()
 {
-	
+	Clear();
 }
 
 void Board::Clear()

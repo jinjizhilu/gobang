@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <array>
 #include <list>
 
 #pragma warning (disable:4244)
@@ -43,7 +44,7 @@ public:
 	static void Id2Coord(int id, int &row, int &col);
 	static bool IsValidCoord(int row, int col);
 
-	char grids[GRID_NUM];
+	array<char, GRID_NUM> grids;
 
 private:
 	char GetGrid(int row, int col);
