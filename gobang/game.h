@@ -51,7 +51,7 @@ private:
 	bool SetGrid(int row, int col, char value);
 };
 
-class Game
+class GameBase
 {
 public:
 	enum State
@@ -62,39 +62,38 @@ public:
 		E_DRAW,
 	};
 
-	Game();
+	GameBase();
 	void Init();
 	bool PutChess(int id);
 	bool PutRandomChess();
-	void Regret(int step = 2);
-	void Print();
-	int GetState() { return state; }
-
-	static int Str2Id(const string &str);
-	static string Id2Str(int id);
-
-	int GetTurn() { return turn; }
-	int GetLastMove() { return lastMove;}
 	int GetSide();
-	int GetEmptyGridCount() { return emptyGridCount; }
-	array<uint8_t, GRID_NUM>& GetEmptyGrids() { return emptyGrids; }
 	bool IsLonelyGrid(int id, int radius);
-	const vector<uint8_t>& GetRecord() { return record; }
-
-	Game* Clone() { return new Game(*this);	}
-	void SetSimMode(bool value) { isSimMode = value; }
-
-private:
 	bool IsWinThisTurn(int move);
 	void UpdateEmptyGrids();
 
 	Board board;
-	bool isSimMode;
 	int state;
 	int turn;
 	int lastMove;
 	int emptyGridCount;
-	vector<uint8_t> record;
 	array<uint8_t, GRID_NUM> emptyGrids;
+};
+
+class Game : private GameBase
+{
+public:
+	int GetState() { return state; }
+	int GetTurn() { return turn; }
+
+	bool PutChess(int id);
+	void Regret(int step = 2);
+	void Print();
+
+	const vector<uint8_t>& GetRecord() { return record; }
+	static int Str2Id(const string &str);
+	static string Id2Str(int id);
+
+private:
+	vector<uint8_t> record;
 };
 

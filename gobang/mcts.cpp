@@ -43,10 +43,9 @@ int MCTS::Search(Game *state)
 	if (root == NULL || !(USE_OLD_TREE && ReuseOldTree(state)))
 	{
 		root = NewTreeNode(NULL);
-		*(root->game) = *state;
-		root->game->SetSimMode(true);
-		root->emptyGridCount = state->GetEmptyGridCount();
-		root->emptyGrids = state->GetEmptyGrids();
+		*(root->game) = *((GameBase*)state);
+		root->emptyGridCount = root->game->emptyGridCount;
+		root->emptyGrids = root->game->emptyGrids;
 	}
 
 	clock_t startTime = clock();
@@ -65,11 +64,13 @@ int MCTS::Search(Game *state)
 	}
 	
 	TreeNode *best = BestChild(root, 0);
-	int move = best->game->GetLastMove();
-	printf("time elapsed: %.2f, iteration count: %d, win rate: %d/%d\n", float(clock() - startTime) / 1000, counter, (int)best->value, best->visit);
-	PrintTree(root);
+	int move = best->game->lastMove;
 
-	if (best->game->GetState() != Game::E_NORMAL)
+	maxDepth = 0;
+	PrintTree(root);
+	printf("time: %.2f, iteration: %d, depth: %d, win: %d/%d\n", float(clock() - startTime) / 1000, counter, maxDepth, (int)best->value, best->visit);
+
+	if (best->game->state != GameBase::E_NORMAL)
 	{
 		ClearNodes(root);
 	}
@@ -79,7 +80,7 @@ int MCTS::Search(Game *state)
 
 TreeNode* MCTS::TreePolicy(TreeNode *node)
 {
-	while (node->game->GetState() == Game::E_NORMAL)
+	while (node->game->state == GameBase::E_NORMAL)
 	{
 		if (PreExpandTree(node))
 			return ExpandTree(node);
@@ -94,7 +95,7 @@ bool MCTS::PreExpandTree(TreeNode *node)
 	bool skipLonelyGrid = true;
 	if (skipLonelyGrid)
 	{
-		int radius = (node->game->GetTurn() < 20) ? 1 : 2;
+		int radius = (node->game->turn < 20) ? 1 : 2;
 
 		while (node->emptyGridCount > 0)
 		{
@@ -125,8 +126,8 @@ TreeNode* MCTS::ExpandTree(TreeNode *node)
 	node->children.push_back(newNode);
 	*(newNode->game) = *(node->game);
 	newNode->game->PutChess(move);
-	newNode->emptyGridCount = newNode->game->GetEmptyGridCount();
-	newNode->emptyGrids = newNode->game->GetEmptyGrids();
+	newNode->emptyGridCount = newNode->game->emptyGridCount;
+	newNode->emptyGrids = newNode->game->emptyGrids;
 
 	return newNode;
 }
@@ -134,7 +135,7 @@ TreeNode* MCTS::ExpandTree(TreeNode *node)
 bool MCTS::PruneTree(TreeNode *node)
 {
 	// if game finishes on this node, just discard its parent node which should not be chosen
-	if (node->game->GetState() != Game::E_NORMAL)
+	if (node->game->state != GameBase::E_NORMAL)
 	{
 		TreeNode *parentNode = node->parent;
 		if (parentNode != root)
@@ -188,14 +189,13 @@ float MCTS::CalcScoreFast(const TreeNode *node, float c, float expandFactorParen
 float MCTS::DefaultPolicy(TreeNode *node)
 {
 	int step = 0;
-	Game *newGame = node->game->Clone();
-	while (newGame->GetState() == Game::E_NORMAL && ++step < FAST_STOP_STEP)
+	gameCache = *(node->game);
+	while (gameCache.state == GameBase::E_NORMAL && ++step < FAST_STOP_STEP)
 	{
-		newGame->PutRandomChess();
+		gameCache.PutRandomChess();
 	}
 
-	float value = (newGame->GetState() == root->game->GetSide()) ? 1.f : 0;
-	delete newGame;
+	float value = (gameCache.state == root->game->GetSide()) ? 1.f : 0;
 
 	// just return random result, since random walk result too far away is not accurate at all
 	if (step >= FAST_STOP_STEP)
@@ -224,17 +224,18 @@ void MCTS::UpdateValue(TreeNode *node, float value)
 
 bool MCTS::ReuseOldTree(Game *state)
 {
-	int lastSelfMove = state->GetRecord()[state->GetTurn() - 3];
-	int lastOpponentMove = state->GetLastMove();
+	auto &record = state->GetRecord();
+	int lastSelfMove = record[record.size() - 3];
+	int lastOpponentMove = record[record.size() - 2];
 
 	TreeNode *foundNode = NULL;
 	for (auto node : root->children)
 	{
-		if (node->game->GetLastMove() == lastSelfMove)
+		if (node->game->lastMove == lastSelfMove)
 		{
 			for (auto child : node->children)
 			{
-				if (child->game->GetLastMove() == lastOpponentMove)
+				if (child->game->lastMove == lastOpponentMove)
 				{
 					foundNode = child;
 					foundNode->parent = NULL;
@@ -269,7 +270,7 @@ TreeNode* MCTS::NewTreeNode(TreeNode *parent)
 	if (pool.empty())
 	{
 		TreeNode *node = new TreeNode(parent);
-		node->game = new Game();
+		node->game = new GameBase();
 		return node;
 	}
 
@@ -310,6 +311,9 @@ void MCTS::PrintTree(TreeNode *node, int level)
 		fopen_s(&fp, LOG_FILE, "a+");
 		fprintf(fp, "===============================PrintTree=============================\n");
 	}
+	
+	if (level > maxDepth)
+		maxDepth = level;
 
 	node->children.sort([this](const TreeNode *a, const TreeNode *b)
 	{

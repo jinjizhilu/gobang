@@ -2,7 +2,7 @@
 #include "mcts.h"
 #include "ctime"
 
-void main()
+int main()
 {
 	srand((unsigned)time(NULL));
 
@@ -13,7 +13,7 @@ void main()
 	
 	bool useAI = true;
 
-	while (g.GetState() == Game::E_NORMAL)
+	while (g.GetState() == GameBase::E_NORMAL)
 	{
 		g.Print();
 
@@ -40,7 +40,7 @@ void main()
 		}
 
 		g.Print();
-		if (g.GetState() != Game::E_NORMAL)
+		if (g.GetState() != GameBase::E_NORMAL)
 			break;
 		
 		if (useAI)
@@ -52,4 +52,6 @@ void main()
 		}
 	}
 	g.Print();
+
+	return 0;
 }

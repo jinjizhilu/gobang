@@ -14,7 +14,7 @@ public:
 	float winRate;
 	float expandFactor;
 	int emptyGridCount;
-	Game *game;
+	GameBase *game;
 
 	TreeNode *parent;
 	list<TreeNode*> children;
@@ -50,6 +50,8 @@ private:
 	void RecycleTreeNode(TreeNode *node);
 	void ClearPool();
 	
+	int maxDepth;
+	GameBase gameCache;
 	list<TreeNode*> pool;
 	TreeNode *root;
 };

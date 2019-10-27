@@ -177,19 +177,17 @@ bool Board::IsValidCoord(int row, int col)
 
 ///////////////////////////////////////////////////////////////////////
 
-Game::Game()
+GameBase::GameBase()
 {
 	Init();
 }
 
-void Game::Init()
+void GameBase::Init()
 {
 	turn = 1;
 	lastMove = -1;
 	board.Clear();
-	record.clear();
 	state = E_NORMAL;
-	isSimMode = false;
 	
 	emptyGridCount = GRID_NUM;
 	for (int i = 0; i < GRID_NUM; ++i)
@@ -198,7 +196,7 @@ void Game::Init()
 	}
 }
 
-bool Game::PutChess(int id)
+bool GameBase::PutChess(int id)
 {
 	if (state != E_NORMAL || board.grids[id] != Board::E_EMPTY)
 		return false;
@@ -207,9 +205,6 @@ bool Game::PutChess(int id)
 	board.grids[id] = side;
 
 	lastMove = id;
-
-	if (!isSimMode)
-		record.push_back(lastMove);
 
 	UpdateEmptyGrids();
 	++turn;
@@ -223,7 +218,7 @@ bool Game::PutChess(int id)
 	return true;
 }
 
-bool Game::PutRandomChess()
+bool GameBase::PutRandomChess()
 {
 	int id = rand() % emptyGridCount;
 	swap(emptyGrids[id], emptyGrids[emptyGridCount - 1]);
@@ -232,20 +227,7 @@ bool Game::PutRandomChess()
 	return PutChess(gridId);
 }
 
-void Game::Regret(int step)
-{
-	while (!isSimMode && !record.empty() && --step >= 0)
-	{
-		--turn;
-		emptyGrids[emptyGridCount++] = record.back();
-		board.grids[record.back()] = Board::E_EMPTY;
-		record.pop_back();
-	}
-
-	lastMove = record.empty() ? -1 : record.back();
-}
-
-void Game::UpdateEmptyGrids()
+void GameBase::UpdateEmptyGrids()
 {
 	if (emptyGrids[emptyGridCount - 1] == lastMove)
 	{
@@ -265,11 +247,52 @@ void Game::UpdateEmptyGrids()
 	}
 }
 
-bool Game::IsLonelyGrid(int id, int radius)
+bool GameBase::IsLonelyGrid(int id, int radius)
 {
 	//int oppnentSide = ((turn + 1) % 2 == 1) ? Board::E_BALCK : Board::E_WHITE;
 	int hasNeighbour = board.CheckNeighbourChessNum(id, radius, 1);
 	return !hasNeighbour;
+}
+
+int GameBase::GetSide()
+{
+	return (turn % 2 == 1) ? Board::E_BLACK : Board::E_WHITE;
+}
+
+bool GameBase::IsWinThisTurn(int move)
+{
+	int maxLine_L_R = board.GetChessNumInLine(move, Board::E_L_R);
+	int maxLine_T_B = board.GetChessNumInLine(move, Board::E_T_B);
+	int maxLine_TL_BR = board.GetChessNumInLine(move, Board::E_TL_BR);
+	int maxLine_TR_BL = board.GetChessNumInLine(move, Board::E_TR_BL);
+	int maxInLine = max(maxLine_L_R, max(maxLine_T_B, max(maxLine_TL_BR, maxLine_TR_BL)));
+
+	return maxInLine >= WIN_COUNT;
+}
+
+///////////////////////////////////////////////////////////////////
+
+bool Game::PutChess(int Id)
+{
+	if (GameBase::PutChess(Id))
+	{
+		record.push_back(lastMove);
+		return true;
+	}
+	return false;
+}
+
+void Game::Regret(int step)
+{
+	while (!record.empty() && --step >= 0)
+	{
+		--turn;
+		emptyGrids[emptyGridCount++] = record.back();
+		board.grids[record.back()] = Board::E_EMPTY;
+		record.pop_back();
+	}
+
+	lastMove = record.empty() ? -1 : record.back();
 }
 
 void Game::Print()
@@ -279,22 +302,6 @@ void Game::Print()
 	printf("=== Current State: %s ===\n", stateText[state].c_str());
 	board.Print(lastMove);
 	cout << endl;
-}
-
-int Game::GetSide()
-{
-	return (turn % 2 == 1) ? Board::E_BLACK : Board::E_WHITE;
-}
-
-bool Game::IsWinThisTurn(int move)
-{
-	int maxLine_L_R = board.GetChessNumInLine(move, Board::E_L_R);
-	int maxLine_T_B = board.GetChessNumInLine(move, Board::E_T_B);
-	int maxLine_TL_BR = board.GetChessNumInLine(move, Board::E_TL_BR);
-	int maxLine_TR_BL = board.GetChessNumInLine(move, Board::E_TR_BL);
-	int maxInLine = max(maxLine_L_R, max(maxLine_T_B, max(maxLine_TL_BR, maxLine_TR_BL)));
-
-	return maxInLine >= WIN_COUNT;
 }
 
 int Game::Str2Id(const string &str)
