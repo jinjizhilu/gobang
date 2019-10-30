@@ -7,7 +7,7 @@
 const char* LOG_FILE = "MCTS.log";
 const float Cp = 1 / sqrtf(1);
 const float TRY_TIME = 1.0f;
-const int FAST_STOP_STEP = 30;
+const int FAST_STOP_STEP = 10;
 const bool USE_OLD_TREE = true;
 
 TreeNode::TreeNode(TreeNode *p)
@@ -134,20 +134,23 @@ TreeNode* MCTS::ExpandTree(TreeNode *node)
 
 bool MCTS::PruneTree(TreeNode *node)
 {
-	// if game finishes on this node, just discard its parent node which should not be chosen
+	// if game finishes on this node, just discard its sibling nodes
 	if (node->game->state != GameBase::E_NORMAL)
 	{
 		TreeNode *parentNode = node->parent;
-		if (parentNode != root)
+		for (auto iNode : parentNode->children)
 		{
-			// do not delete last node when failure is inevitable
-			if (parentNode->parent->children.size() > 1)
+			if (iNode != node)
 			{
-				parentNode->parent->children.remove(parentNode);
-				ClearNodes(parentNode);
-				return true;
+				ClearNodes(iNode);
 			}
 		}
+		parentNode->children.clear();
+		parentNode->children.push_back(node);
+
+		parentNode->emptyGridCount = 0;
+
+		return true;
 	}
 	return false;
 }
