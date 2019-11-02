@@ -2,25 +2,60 @@
 #include "mcts.h"
 #include "cmath"
 #include "ctime"
+#include "cstdlib"
 
-const float Cp = 1 / sqrtf(2);
-const int TRY_COUNT = 100000;
+const char* LOG_FILE = "MCTS.log";
+const float Cp = 1.0f;
 const float TRY_TIME = 1.0f;
+const int FAST_STOP_STEP = 10;
+const bool USE_OLD_TREE = true;
 
 TreeNode::TreeNode(TreeNode *p)
 {
 	visit = 0;
 	value = 0;
+	score = 0;
+	winRate = 0;
+	expandFactor = 0;
+	emptyGridCount = 0;
 	game = NULL;
 	parent = p;
 }
 
-Int2 MCTS::Search(Game *state)
+FILE *fp;
+
+MCTS::MCTS()
 {
-	root = new TreeNode(NULL);
-	root->game = state->Clone();
-	root->game->SetSimMode(true);
-	root->emptyGrids = state->GetEmptyGrids();
+	root = NULL;
+
+	// clear log file
+	fopen_s(&fp, LOG_FILE, "w");
+	fclose(fp);
+}
+
+MCTS::~MCTS()
+{
+	ClearPool();
+}
+
+int MCTS::Search(Game *state)
+{
+	if (USE_OLD_TREE && root != NULL)
+	{
+		root = ReuseOldTree(state);
+	}
+
+	if (root == NULL)
+	{
+		root = NewTreeNode(NULL);
+		*(root->game) = *((GameBase*)state);
+		root->emptyGridCount = root->game->emptyGridCount;
+		root->emptyGrids = root->game->emptyGrids;
+	}
+	else
+	{
+		printf("[Reusing old tree] win: %d/%d\n", (int)root->value, root->visit);
+	}
 
 	clock_t startTime = clock();
 	int counter = 0;
@@ -30,25 +65,35 @@ Int2 MCTS::Search(Game *state)
 		TreeNode *node = TreePolicy(root);
 		float value = DefaultPolicy(node);
 		UpdateValue(node, value);
+		PruneTree(node);
 
 		float elapedTime = float(clock() - startTime) / 1000;
 		if (elapedTime > TRY_TIME)
 			break;
+
+		/*if (counter % 10000 == 0)
+			PrintTree(root);*/
 	}
 	
 	TreeNode *best = BestChild(root, 0);
-	Int2 move = best->game->GetLastMove();
-	printf("time elapsed: %.2f, iteration count: %d\n", float(clock() - startTime) / 1000, counter);
-	//PrintTree(root);
+	int move = best->game->lastMove;
 
-	ClearNodes(root);
+	maxDepth = 0;
+	PrintTree(root);
+	printf("time: %.2f, iteration: %d, depth: %d, win: %d/%d\n", float(clock() - startTime) / 1000, counter, maxDepth, (int)best->value, best->visit);
+
+	if (best->game->state != GameBase::E_NORMAL || !USE_OLD_TREE)
+	{
+		ClearNodes(root);
+		root = NULL;
+	}
 
 	return move;
 }
 
 TreeNode* MCTS::TreePolicy(TreeNode *node)
 {
-	while (node->game->GetState() == Game::E_NORMAL)
+	while (node->game->state == GameBase::E_NORMAL)
 	{
 		if (PreExpandTree(node))
 			return ExpandTree(node);
@@ -63,49 +108,74 @@ bool MCTS::PreExpandTree(TreeNode *node)
 	bool skipLonelyGrid = true;
 	if (skipLonelyGrid)
 	{
-		int radius = (node->game->GetTurn() < 20) ? 1 : 2;
+		int radius = (node->game->turn < 20) ? 1 : 2;
 
-		while (!node->emptyGrids.empty())
+		while (node->emptyGridCount > 0)
 		{
-			int id = rand() % node->emptyGrids.size();
-			swap(node->emptyGrids[id], node->emptyGrids.back());
-			Int2 move = node->emptyGrids.back();
+			int id = rand() % node->emptyGridCount;
+			swap(node->emptyGrids[id], node->emptyGrids[node->emptyGridCount - 1]);
+			int move = node->emptyGrids[node->emptyGridCount - 1];
 
-			if (!node->game->IsLonelyGrid(move.x, move.y, radius))
+			if (!node->game->IsLonelyGrid(move, radius))
 				break;
 
-			node->emptyGrids.pop_back();
+			--(node->emptyGridCount);
 		}
 	}
 	else
 	{
-		int id = rand() % node->emptyGrids.size();
-		swap(node->emptyGrids[id], node->emptyGrids.back());
+		int id = rand() % node->emptyGridCount;
+		swap(node->emptyGrids[id], node->emptyGrids[node->emptyGridCount - 1]);
 	}
-	return !node->emptyGrids.empty();
+	return node->emptyGridCount > 0;
 }
 
 TreeNode* MCTS::ExpandTree(TreeNode *node)
 {
-	Int2 move = node->emptyGrids.back();
-	node->emptyGrids.pop_back();
+	int move = node->emptyGrids[node->emptyGridCount - 1];
+	--(node->emptyGridCount);
 
-	TreeNode *newNode = new TreeNode(node);
+	TreeNode *newNode = NewTreeNode(node);
 	node->children.push_back(newNode);
-	newNode->game = node->game->Clone();
-	newNode->game->PutChess(move.x, move.y);
-	newNode->emptyGrids = newNode->game->GetEmptyGrids();
+	*(newNode->game) = *(node->game);
+	newNode->game->PutChess(move);
+	newNode->emptyGridCount = newNode->game->emptyGridCount;
+	newNode->emptyGrids = newNode->game->emptyGrids;
 
 	return newNode;
+}
+
+bool MCTS::PruneTree(TreeNode *node)
+{
+	// if game finishes on this node, just discard its sibling nodes
+	if (node->game->state != GameBase::E_NORMAL)
+	{
+		TreeNode *parentNode = node->parent;
+		for (auto iNode : parentNode->children)
+		{
+			if (iNode != node)
+			{
+				ClearNodes(iNode);
+			}
+		}
+		parentNode->children.clear();
+		parentNode->children.push_back(node);
+
+		parentNode->emptyGridCount = 0;
+
+		return true;
+	}
+	return false;
 }
 
 TreeNode* MCTS::BestChild(TreeNode *node, float c)
 {
 	TreeNode *result = NULL;
 	float bestScore = -1;
+	float expandFactorParent = sqrtf(logf(node->visit));
 	for (auto child : node->children)
 	{
-		float score = CalcScore(child, c);
+		float score = CalcScoreFast(child, c, expandFactorParent);
 		child->score = score;
 		if (score > bestScore)
 		{
@@ -116,21 +186,38 @@ TreeNode* MCTS::BestChild(TreeNode *node, float c)
 	return result;
 }
 
-float MCTS::CalcScore(const TreeNode *node, float c)
+float MCTS::CalcScore(const TreeNode *node, float c, float logParentVisit)
 {
-	return (float)node->value / node->visit + c * sqrtf(logf(node->parent->visit) / node->visit);
+	float winRate = (float)node->value / node->visit;
+	float expandFactor = c * sqrtf(logParentVisit / node->visit);
+
+	if (node->game->GetSide() == root->game->GetSide()) // win rate of opponent
+		winRate = 1 - winRate;
+
+	return winRate + expandFactor;
+}
+
+float MCTS::CalcScoreFast(const TreeNode *node, float c, float expandFactorParent)
+{
+	return node->winRate + node->expandFactor * expandFactorParent * c;
 }
 
 float MCTS::DefaultPolicy(TreeNode *node)
 {
-	Game *newGame = node->game->Clone();
-	while (newGame->GetState() == Game::E_NORMAL)
+	int step = 0;
+	gameCache = *(node->game);
+	while (gameCache.state == GameBase::E_NORMAL && ++step < FAST_STOP_STEP)
 	{
-		newGame->PutRandomChess();
+		gameCache.PutRandomChess();
 	}
 
-	float value = (newGame->GetState() == root->game->GetSide()) ? 1.f : 0;
-	delete newGame;
+	float value = (gameCache.state == root->game->GetSide()) ? 1.f : 0;
+
+	// just return random result, since random walk result too far away is not accurate at all
+	if (step >= FAST_STOP_STEP)
+	{
+		value = rand() % 2;
+	}
 
 	return value;
 }
@@ -141,8 +228,44 @@ void MCTS::UpdateValue(TreeNode *node, float value)
 	{
 		node->visit++;
 		node->value += value;
+
+		node->expandFactor = sqrtf(1.f / node->visit);
+		node->winRate = node->value / node->visit;
+		if (node->game->GetSide() == root->game->GetSide()) // win rate of opponent
+			node->winRate = 1 - node->winRate;
+
 		node = node->parent;
 	}
+}
+
+TreeNode* MCTS::ReuseOldTree(Game *state)
+{
+	auto &record = state->GetRecord();
+	int lastSelfMove = record[record.size() - 2];
+	int lastOpponentMove = record[record.size() - 1];
+
+	TreeNode *foundNode = NULL;
+	for (auto node : root->children)
+	{
+		if (node->game->lastMove == lastSelfMove)
+		{
+			for (auto child : node->children)
+			{
+				if (child->game->lastMove == lastOpponentMove)
+				{
+					foundNode = child;
+					foundNode->parent = NULL;
+					node->children.remove(foundNode);
+					break;
+				}
+			}
+			break;
+		}
+	}
+	ClearNodes(root);
+	root = NULL;
+
+	return foundNode;
 }
 
 void MCTS::ClearNodes(TreeNode *node)
@@ -153,6 +276,45 @@ void MCTS::ClearNodes(TreeNode *node)
 		{
 			ClearNodes(child);
 		}
+
+		RecycleTreeNode(node);
+	}
+}
+
+TreeNode* MCTS::NewTreeNode(TreeNode *parent)
+{
+	if (pool.empty())
+	{
+		TreeNode *node = new TreeNode(parent);
+		node->game = new GameBase();
+		return node;
+	}
+
+	TreeNode *node = pool.back();
+	node->parent = parent;
+	pool.pop_back();
+
+	return node;
+}
+
+void MCTS::RecycleTreeNode(TreeNode *node)
+{
+	node->parent = NULL;
+	node->visit = 0;
+	node->value = 0;
+	node->score = 0;
+	node->winRate = 0;
+	node->expandFactor = 0;
+	node->emptyGridCount = 0;
+	node->children.clear();
+
+	pool.push_back(node);
+}
+
+void MCTS::ClearPool()
+{
+	for (auto node : pool)
+	{
 		delete node->game;
 		delete node;
 	}
@@ -160,22 +322,41 @@ void MCTS::ClearNodes(TreeNode *node)
 
 void MCTS::PrintTree(TreeNode *node, int level)
 {
+	if (level == 0)
+	{
+		fopen_s(&fp, LOG_FILE, "a+");
+		fprintf(fp, "===============================PrintTree=============================\n");
+	}
+	
+	if (level > maxDepth)
+		maxDepth = level;
+
 	node->children.sort([this](const TreeNode *a, const TreeNode *b)
 	{
-		//return CalcScore(a, 0) > CalcScore(b, 0);
 		return a->visit > b->visit;
 	});
 
-	int i = 0;
+	int i = 1;
 	for (auto it = node->children.begin(); it != node->children.end(); ++it)
 	{
-		for (int j = 0; j < level; ++j)
-			cout << "   ";
+		if ((float)(*it)->visit / root->visit > 0.000)
+		{
+			fprintf(fp, "%d", level);
+			for (int j = 0; j < level; ++j)
+				fprintf(fp, "   ");
 
-		printf("visit: %d, value: %.0f, score: %.4f\n", (*it)->visit, (*it)->value, CalcScore(*it, Cp));
-		PrintTree(*it, level + 1);
+			float expandFactorParent = sqrtf(logf(node->visit));
+			fprintf(fp, "visit: %d, value: %.0f, score: %.4f, children: %d, move: %s\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, Cp, expandFactorParent), (*it)->children.size(), Game::Id2Str((*it)->game->lastMove).c_str());
+			PrintTree(*it, level + 1);
+		}
 
-		if (++i > 5)
+		if (++i > 3)
 			break;
+	}
+
+	if (level == 0)
+	{
+		fprintf(fp,"================================TreeEnd============================\n\n");
+		fclose(fp);
 	}
 }

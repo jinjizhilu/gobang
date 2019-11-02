@@ -1,35 +1,57 @@
 #include "game.h"
 #include "mcts.h"
+#include "ctime"
 
-void main()
+int main()
 {
+	srand((unsigned)time(NULL));
+
 	MCTS ai;
 	Game g;
 	string input;
-	Int2 move;
+	int move;
 	
 	bool useAI = true;
 
-	while (g.GetState() == Game::E_NORMAL)
+	while (g.GetState() == GameBase::E_NORMAL)
 	{
 		g.Print();
 
-		cout << "Enter your move: ";
-		cin >> input;
-		
-		move = Game::Str2Coord(input);
-		g.PutChess(move.x, move.y);
+		while (1)
+		{
+			cout << "Enter your move: ";
+			cin >> input;
+
+			if (input == "undo" && g.GetTurn() > 2)
+			{
+				g.Regret(2);
+				g.Print();
+				continue;
+			}
+
+			move = Game::Str2Id(input);
+			if (move != -1)
+			{
+				if (g.PutChess(move))
+					break;
+			}
+
+			cout << "!Invalid move!" << endl;
+		}
+
 		g.Print();
-		if (g.GetState() != Game::E_NORMAL)
+		if (g.GetState() != GameBase::E_NORMAL)
 			break;
 		
 		if (useAI)
 		{
 			cout << "AI is thinking..." << endl;
-			Int2 aiMove = ai.Search(&g);
-			cout << "AI's move: " << Game::Coord2Str(aiMove) << endl;
-			g.PutChess(aiMove.x, aiMove.y);
+			int aiMove = ai.Search(&g);
+			cout << "AI's move: " << Game::Id2Str(aiMove) << endl;
+			g.PutChess(aiMove);
 		}
 	}
 	g.Print();
+
+	return 0;
 }

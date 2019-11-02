@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <array>
 #include <list>
 
 #pragma warning (disable:4244)
@@ -13,25 +14,13 @@ const int BOARD_SIZE = 15;
 const int WIN_COUNT = 5;
 const int GRID_NUM = BOARD_SIZE * BOARD_SIZE;
 
-struct Int2
-{
-	Int2() : x(-1), y(-1) {}
-	Int2(int x, int y) : x(x), y(y) {}
-	int x, y;
-
-	bool operator==(const Int2& other)
-	{
-		return x == other.x && y == other.y;
-	}
-};
-
 class Board
 {
 public:
 	enum Chess
 	{
 		E_EMPTY,
-		E_BALCK,
+		E_BLACK,
 		E_WHITE,
 		E_INVALID,
 	};
@@ -46,16 +35,23 @@ public:
 	Board();
 
 	void Clear();
-	void Print(Int2 lastChess);
-	int GetGrid(int row, int col);
-	bool SetGrid(int row, int col, short value);
-	int GetChessNumInLine(int row, int col, ChessDirection dir);
-	bool CheckNeighbourChessNum(int row, int col, int side, int radius, int num);
+	void Print(int lastChess);
+	int GetChessNumInLine(int id, ChessDirection dir);
+	bool CheckNeighbourChessNumWithSide(int id, int side, int radius, int num);
+	bool CheckNeighbourChessNum(int id, int radius, int num);
 
-	short grids[GRID_NUM];
+	static int Coord2Id(int row, int col);
+	static void Id2Coord(int id, int &row, int &col);
+	static bool IsValidCoord(int row, int col);
+
+	array<char, GRID_NUM> grids;
+
+private:
+	char GetGrid(int row, int col);
+	bool SetGrid(int row, int col, char value);
 };
 
-class Game
+class GameBase
 {
 public:
 	enum State
@@ -66,34 +62,38 @@ public:
 		E_DRAW,
 	};
 
-	Game();
+	GameBase();
 	void Init();
-	bool PutChess(int row, int col);
+	bool PutChess(int id);
 	bool PutRandomChess();
-	void Print();
-	int GetState() { return state; }
-	static Int2 Str2Coord(const string &str);
-	static string Coord2Str(Int2 coord);
-
-	int GetTurn() { return turn; }
-	Int2 GetLastMove() { return lastMove;}
 	int GetSide();
-	vector<Int2>& GetEmptyGrids() { return emptyGrids; }
-	bool IsLonelyGrid(int row, int col, int radius);
-
-	Game* Clone() { return new Game(*this);	}
-	void SetSimMode(bool value) { isSimMode = value; }
-
-private:
-	bool IsWinThisTurn(Int2 move);
+	bool IsLonelyGrid(int id, int radius);
+	bool IsWinThisTurn(int move);
 	void UpdateEmptyGrids();
 
 	Board board;
-	bool isSimMode;
 	int state;
 	int turn;
-	Int2 lastMove;
-	vector<Int2> record;
-	vector<Int2> emptyGrids;
+	int lastMove;
+	int emptyGridCount;
+	array<uint8_t, GRID_NUM> emptyGrids;
+};
+
+class Game : private GameBase
+{
+public:
+	int GetState() { return state; }
+	int GetTurn() { return turn; }
+
+	bool PutChess(int id);
+	void Regret(int step = 2);
+	void Print();
+
+	const vector<uint8_t>& GetRecord() { return record; }
+	static int Str2Id(const string &str);
+	static string Id2Str(int id);
+
+private:
+	vector<uint8_t> record;
 };
 
