@@ -5,7 +5,7 @@
 #include "cstdlib"
 
 const char* LOG_FILE = "MCTS.log";
-const float Cp = 1 / sqrtf(1);
+const float Cp = 1.0f;
 const float TRY_TIME = 1.0f;
 const int FAST_STOP_STEP = 10;
 const bool USE_OLD_TREE = true;
@@ -40,12 +40,21 @@ MCTS::~MCTS()
 
 int MCTS::Search(Game *state)
 {
-	if (root == NULL || !(USE_OLD_TREE && ReuseOldTree(state)))
+	if (USE_OLD_TREE && root != NULL)
+	{
+		root = ReuseOldTree(state);
+	}
+
+	if (root == NULL)
 	{
 		root = NewTreeNode(NULL);
 		*(root->game) = *((GameBase*)state);
 		root->emptyGridCount = root->game->emptyGridCount;
 		root->emptyGrids = root->game->emptyGrids;
+	}
+	else
+	{
+		printf("[Reusing old tree] win: %d/%d\n", (int)root->value, root->visit);
 	}
 
 	clock_t startTime = clock();
@@ -61,6 +70,9 @@ int MCTS::Search(Game *state)
 		float elapedTime = float(clock() - startTime) / 1000;
 		if (elapedTime > TRY_TIME)
 			break;
+
+		/*if (counter % 10000 == 0)
+			PrintTree(root);*/
 	}
 	
 	TreeNode *best = BestChild(root, 0);
@@ -70,9 +82,10 @@ int MCTS::Search(Game *state)
 	PrintTree(root);
 	printf("time: %.2f, iteration: %d, depth: %d, win: %d/%d\n", float(clock() - startTime) / 1000, counter, maxDepth, (int)best->value, best->visit);
 
-	if (best->game->state != GameBase::E_NORMAL)
+	if (best->game->state != GameBase::E_NORMAL || !USE_OLD_TREE)
 	{
 		ClearNodes(root);
+		root = NULL;
 	}
 
 	return move;
@@ -225,11 +238,11 @@ void MCTS::UpdateValue(TreeNode *node, float value)
 	}
 }
 
-bool MCTS::ReuseOldTree(Game *state)
+TreeNode* MCTS::ReuseOldTree(Game *state)
 {
 	auto &record = state->GetRecord();
-	int lastSelfMove = record[record.size() - 3];
-	int lastOpponentMove = record[record.size() - 2];
+	int lastSelfMove = record[record.size() - 2];
+	int lastOpponentMove = record[record.size() - 1];
 
 	TreeNode *foundNode = NULL;
 	for (auto node : root->children)
@@ -250,9 +263,9 @@ bool MCTS::ReuseOldTree(Game *state)
 		}
 	}
 	ClearNodes(root);
-	root = foundNode;
+	root = NULL;
 
-	return (root != NULL);
+	return foundNode;
 }
 
 void MCTS::ClearNodes(TreeNode *node)
@@ -333,7 +346,7 @@ void MCTS::PrintTree(TreeNode *node, int level)
 				fprintf(fp, "   ");
 
 			float expandFactorParent = sqrtf(logf(node->visit));
-			fprintf(fp, "visit: %d, value: %.0f, score: %.4f, children: %d\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, Cp, expandFactorParent), (*it)->children.size());
+			fprintf(fp, "visit: %d, value: %.0f, score: %.4f, children: %d, move: %s\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, Cp, expandFactorParent), (*it)->children.size(), Game::Id2Str((*it)->game->lastMove).c_str());
 			PrintTree(*it, level + 1);
 		}
 

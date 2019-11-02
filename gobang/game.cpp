@@ -62,11 +62,17 @@ void Board::Print(int lastChess)
 
 char Board::GetGrid(int row, int col)
 {
+	if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE)
+		return E_INVALID;
+
 	return grids[Board::Coord2Id(row, col)];
 }
 
 bool Board::SetGrid(int row, int col, char value)
 {
+	if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE)
+		return false;
+
 	grids[Board::Coord2Id(row, col)] = value;
 	return true;
 }

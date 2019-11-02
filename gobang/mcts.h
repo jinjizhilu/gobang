@@ -39,7 +39,7 @@ private:
 	// custom optimization
 	bool PreExpandTree(TreeNode *node);
 	bool PruneTree(TreeNode *node);
-	bool ReuseOldTree(Game *state);
+	TreeNode* ReuseOldTree(Game *state);
 
 	void ClearNodes(TreeNode *node);
 	float CalcScore(const TreeNode *node, float c, float logParentVisit);
