@@ -235,20 +235,13 @@ bool GameBase::PutRandomChess()
 
 void GameBase::UpdateEmptyGrids()
 {
-	if (emptyGrids[emptyGridCount - 1] == lastMove)
+	for (int i = emptyGridCount - 1; i >= 0; --i)
 	{
-		--emptyGridCount;
-	}
-	else
-	{
-		for (int i = emptyGrids.size() - 1; i >= 0; --i)
+		if (emptyGrids[i] == lastMove)
 		{
-			if (emptyGrids[i] == lastMove)
-			{
-				swap(emptyGrids[i], emptyGrids[emptyGridCount - 1]);
-				--emptyGridCount;
-				break;
-			}
+			swap(emptyGrids[i], emptyGrids[emptyGridCount - 1]);
+			--emptyGridCount;
+			break;
 		}
 	}
 }

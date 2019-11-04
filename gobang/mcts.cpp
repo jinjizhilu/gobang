@@ -124,8 +124,11 @@ bool MCTS::PreExpandTree(TreeNode *node)
 	}
 	else
 	{
-		int id = rand() % node->emptyGridCount;
-		swap(node->emptyGrids[id], node->emptyGrids[node->emptyGridCount - 1]);
+		if (node->emptyGridCount > 0)
+		{
+			int id = rand() % node->emptyGridCount;
+			swap(node->emptyGrids[id], node->emptyGrids[node->emptyGridCount - 1]);
+		}
 	}
 	return node->emptyGridCount > 0;
 }
@@ -172,10 +175,10 @@ TreeNode* MCTS::BestChild(TreeNode *node, float c)
 {
 	TreeNode *result = NULL;
 	float bestScore = -1;
-	float expandFactorParent = sqrtf(logf(node->visit));
+	float expandFactorParent_c = sqrtf(logf(node->visit)) * c;
 	for (auto child : node->children)
 	{
-		float score = CalcScoreFast(child, c, expandFactorParent);
+		float score = CalcScoreFast(child, expandFactorParent_c);
 		child->score = score;
 		if (score > bestScore)
 		{
@@ -197,9 +200,9 @@ float MCTS::CalcScore(const TreeNode *node, float c, float logParentVisit)
 	return winRate + expandFactor;
 }
 
-float MCTS::CalcScoreFast(const TreeNode *node, float c, float expandFactorParent)
+float MCTS::CalcScoreFast(const TreeNode *node, float expandFactorParent_c)
 {
-	return node->winRate + node->expandFactor * expandFactorParent * c;
+	return node->winRate + node->expandFactor * expandFactorParent_c;
 }
 
 float MCTS::DefaultPolicy(TreeNode *node)
@@ -345,8 +348,8 @@ void MCTS::PrintTree(TreeNode *node, int level)
 			for (int j = 0; j < level; ++j)
 				fprintf(fp, "   ");
 
-			float expandFactorParent = sqrtf(logf(node->visit));
-			fprintf(fp, "visit: %d, value: %.0f, score: %.4f, children: %d, move: %s\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, Cp, expandFactorParent), (*it)->children.size(), Game::Id2Str((*it)->game->lastMove).c_str());
+			float expandFactorParent_c = sqrtf(logf(node->visit)) * Cp;
+			fprintf(fp, "visit: %d, value: %.0f, score: %.4f, children: %d, move: %s\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, expandFactorParent_c), (*it)->children.size(), Game::Id2Str((*it)->game->lastMove).c_str());
 			PrintTree(*it, level + 1);
 		}
 

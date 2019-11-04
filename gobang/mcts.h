@@ -43,7 +43,7 @@ private:
 
 	void ClearNodes(TreeNode *node);
 	float CalcScore(const TreeNode *node, float c, float logParentVisit);
-	float CalcScoreFast(const TreeNode *node, float c, float expandFactorParent);
+	float CalcScoreFast(const TreeNode *node, float expandFactorParent_c);
 	void PrintTree(TreeNode *node, int level = 0);
 
 	TreeNode* NewTreeNode(TreeNode *parent);
