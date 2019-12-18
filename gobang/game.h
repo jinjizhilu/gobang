@@ -69,14 +69,14 @@ public:
 	int GetSide();
 	bool IsLonelyGrid(int id, int radius);
 	bool IsWinThisTurn(int move);
-	void UpdateEmptyGrids();
+	void UpdateValidGrids();
 
 	Board board;
 	int state;
 	int turn;
 	int lastMove;
-	int emptyGridCount;
-	array<uint8_t, GRID_NUM> emptyGrids;
+	int validGridCount;
+	array<uint8_t, GRID_NUM> validGrids;
 };
 
 class Game : private GameBase

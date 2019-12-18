@@ -13,12 +13,12 @@ public:
 	float score;
 	float winRate;
 	float expandFactor;
-	int emptyGridCount;
+	int validGridCount;
 	GameBase *game;
 
 	TreeNode *parent;
 	list<TreeNode*> children;
-	array<uint8_t, GRID_NUM> emptyGrids;
+	array<uint8_t, GRID_NUM> validGrids;
 };
 
 class MCTS

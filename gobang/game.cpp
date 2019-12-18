@@ -195,10 +195,10 @@ void GameBase::Init()
 	board.Clear();
 	state = E_NORMAL;
 	
-	emptyGridCount = GRID_NUM;
+	validGridCount = GRID_NUM;
 	for (int i = 0; i < GRID_NUM; ++i)
 	{
-		emptyGrids[i] = i;
+		validGrids[i] = i;
 	}
 }
 
@@ -212,7 +212,7 @@ bool GameBase::PutChess(int id)
 
 	lastMove = id;
 
-	UpdateEmptyGrids();
+	UpdateValidGrids();
 	++turn;
 
 	if (IsWinThisTurn(lastMove))
@@ -226,21 +226,21 @@ bool GameBase::PutChess(int id)
 
 bool GameBase::PutRandomChess()
 {
-	int id = rand() % emptyGridCount;
-	swap(emptyGrids[id], emptyGrids[emptyGridCount - 1]);
-	int gridId = emptyGrids[emptyGridCount - 1];
+	int id = rand() % validGridCount;
+	swap(validGrids[id], validGrids[validGridCount - 1]);
+	int gridId = validGrids[validGridCount - 1];
 
 	return PutChess(gridId);
 }
 
-void GameBase::UpdateEmptyGrids()
+void GameBase::UpdateValidGrids()
 {
-	for (int i = emptyGridCount - 1; i >= 0; --i)
+	for (int i = validGridCount - 1; i >= 0; --i)
 	{
-		if (emptyGrids[i] == lastMove)
+		if (validGrids[i] == lastMove)
 		{
-			swap(emptyGrids[i], emptyGrids[emptyGridCount - 1]);
-			--emptyGridCount;
+			swap(validGrids[i], validGrids[validGridCount - 1]);
+			--validGridCount;
 			break;
 		}
 	}
@@ -286,7 +286,7 @@ void Game::Regret(int step)
 	while (!record.empty() && --step >= 0)
 	{
 		--turn;
-		emptyGrids[emptyGridCount++] = record.back();
+		validGrids[validGridCount++] = record.back();
 		board.grids[record.back()] = Board::E_EMPTY;
 		record.pop_back();
 	}
