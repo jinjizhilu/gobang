@@ -6,7 +6,8 @@
 
 const char* LOG_FILE = "MCTS.log";
 const float Cp = 2.0f;
-const float TRY_TIME = 1.0f;
+const float SEARCH_TIME = 1.0f;
+const int	EXPAND_THRESHOLD = 10;
 
 TreeNode::TreeNode(TreeNode *p)
 {
@@ -54,14 +55,18 @@ int MCTS::Search(Game *state)
 		PruneTree(node);
 
 		float elapedTime = float(clock() - startTime) / 1000;
-		if (elapedTime > TRY_TIME)
+		if (elapedTime > SEARCH_TIME)
 			break;
 
 		/*if (counter % 10000 == 0)
 			PrintTree(root);*/
 	}
 	
-	TreeNode *best = BestChild(root, 0);
+	// use most visited child node as result
+	TreeNode *best = *max_element(root->children.begin(), root->children.end(), [this](const TreeNode *a, const TreeNode *b)
+	{
+		return a->visit < b->visit;
+	});
 	int move = best->game->lastMove;
 
 	maxDepth = 0;
@@ -77,6 +82,9 @@ TreeNode* MCTS::TreePolicy(TreeNode *node)
 {
 	while (node->game->state == GameBase::E_NORMAL)
 	{
+		if (node->visit < EXPAND_THRESHOLD)
+			return node;
+
 		if (PreExpandTree(node))
 			return ExpandTree(node);
 		else
