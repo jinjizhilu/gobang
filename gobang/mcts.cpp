@@ -1,8 +1,9 @@
 #include <fstream>
+#include <thread>
+#include <mutex>
+#include <cmath>
+#include <cstdlib>
 #include "mcts.h"
-#include "cmath"
-#include "ctime"
-#include "cstdlib"
 
 const char* LOG_FILE = "MCTS.log";
 const float Cp = 2.0f;
@@ -37,6 +38,29 @@ MCTS::~MCTS()
 	ClearPool();
 }
 
+mutex mtx;
+
+void MCTS::SearchThread(int id, MCTS *mcts, clock_t startTime)
+{
+	float elapsedTime = 0;
+	while (elapsedTime <= SEARCH_TIME)
+	{
+		mtx.lock();
+		TreeNode *node = mcts->TreePolicy(mcts->root);
+		mcts->gameCache[id] = *(node->game);
+		mtx.unlock();
+
+		float value = mcts->DefaultPolicy(id);
+
+		mtx.lock();
+		mcts->UpdateValue(node, value);
+		mcts->PruneTree(node);
+		mtx.unlock();
+
+		elapsedTime = float(clock() - startTime) / 1000;
+	}
+}
+
 int MCTS::Search(Game *state)
 {
 	root = NewTreeNode(NULL);
@@ -45,22 +69,15 @@ int MCTS::Search(Game *state)
 	root->validGrids = root->game->validGrids;
 
 	clock_t startTime = clock();
-	int counter = 0;
 
-	while (++counter > 0)
-	{
-		TreeNode *node = TreePolicy(root);
-		float value = DefaultPolicy(node);
-		UpdateValue(node, value);
-		PruneTree(node);
+	thread threads[THREAD_NUM_MAX];
+	int thread_num = thread::hardware_concurrency();
 
-		float elapedTime = float(clock() - startTime) / 1000;
-		if (elapedTime > SEARCH_TIME)
-			break;
+	for (int i = 0; i < thread_num; ++i)
+		threads[i] = thread(SearchThread, i, this, startTime);
 
-		/*if (counter % 10000 == 0)
-			PrintTree(root);*/
-	}
+	for (int i = 0; i < thread_num; ++i)
+		threads[i].join();
 	
 	// use most visited child node as result
 	TreeNode *best = *max_element(root->children.begin(), root->children.end(), [this](const TreeNode *a, const TreeNode *b)
@@ -71,7 +88,7 @@ int MCTS::Search(Game *state)
 
 	maxDepth = 0;
 	PrintTree(root);
-	printf("time: %.2f, iteration: %d, depth: %d, win: %d/%d\n", float(clock() - startTime) / 1000, counter, maxDepth, (int)best->value, best->visit);
+	printf("time: %.2f, iteration: %d, depth: %d, win: %d/%d\n", float(clock() - startTime) / 1000, root->visit, maxDepth, (int)best->value, best->visit);
 
 	ClearNodes(root);
 
@@ -195,15 +212,13 @@ float MCTS::CalcScoreFast(const TreeNode *node, float expandFactorParent_c)
 	return node->winRate + node->expandFactor * expandFactorParent_c;
 }
 
-float MCTS::DefaultPolicy(TreeNode *node)
+float MCTS::DefaultPolicy(int id)
 {
-	int step = 0;
-	gameCache = *(node->game);
-	while (gameCache.state == GameBase::E_NORMAL)
+	while (gameCache[id].state == GameBase::E_NORMAL)
 	{
-		gameCache.PutRandomChess();
+		gameCache[id].PutRandomChess();
 	}
-	float value = (gameCache.state == root->game->GetSide()) ? 1.f : 0;
+	float value = (gameCache[id].state == root->game->GetSide()) ? 1.f : 0;
 
 	return value;
 }
