@@ -47,14 +47,12 @@ void MCTS::SearchThread(int id, MCTS *mcts, clock_t startTime)
 	{
 		mtx.lock();
 		TreeNode *node = mcts->TreePolicy(mcts->root);
-		mcts->gameCache[id] = *(node->game);
 		mtx.unlock();
 
-		float value = mcts->DefaultPolicy(id);
+		float value = mcts->DefaultPolicy(node, id);
 
 		mtx.lock();
 		mcts->UpdateValue(node, value);
-		mcts->PruneTree(node);
 		mtx.unlock();
 
 		elapsedTime = float(clock() - startTime) / 1000;
@@ -155,29 +153,6 @@ TreeNode* MCTS::ExpandTree(TreeNode *node)
 	return newNode;
 }
 
-bool MCTS::PruneTree(TreeNode *node)
-{
-	// if game finishes on this node, just discard its sibling nodes
-	if (node->game->state != GameBase::E_NORMAL)
-	{
-		TreeNode *parentNode = node->parent;
-		for (auto iNode : parentNode->children)
-		{
-			if (iNode != node)
-			{
-				ClearNodes(iNode);
-			}
-		}
-		parentNode->children.clear();
-		parentNode->children.push_back(node);
-
-		parentNode->validGridCount = 0;
-
-		return true;
-	}
-	return false;
-}
-
 TreeNode* MCTS::BestChild(TreeNode *node, float c)
 {
 	TreeNode *result = NULL;
@@ -212,8 +187,10 @@ float MCTS::CalcScoreFast(const TreeNode *node, float expandFactorParent_c)
 	return node->winRate + node->expandFactor * expandFactorParent_c;
 }
 
-float MCTS::DefaultPolicy(int id)
+float MCTS::DefaultPolicy(TreeNode *node, int id)
 {
+	gameCache[id] = *(node->game);
+
 	while (gameCache[id].state == GameBase::E_NORMAL)
 	{
 		gameCache[id].PutRandomChess();
@@ -232,6 +209,7 @@ void MCTS::UpdateValue(TreeNode *node, float value)
 
 		node->expandFactor = sqrtf(1.f / node->visit);
 		node->winRate = node->value / node->visit;
+
 		if (node->game->GetSide() == root->game->GetSide()) // win rate of opponent
 			node->winRate = 1 - node->winRate;
 

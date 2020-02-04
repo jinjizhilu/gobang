@@ -38,12 +38,11 @@ private:
 	TreeNode* TreePolicy(TreeNode *node);
 	TreeNode* ExpandTree(TreeNode *node);
 	TreeNode* BestChild(TreeNode *node, float c);
-	float DefaultPolicy(int id);
+	float DefaultPolicy(TreeNode *node, int id);
 	void UpdateValue(TreeNode *node, float value);
 
 	// custom optimization
 	bool PreExpandTree(TreeNode *node);
-	bool PruneTree(TreeNode *node);
 
 	void ClearNodes(TreeNode *node);
 	float CalcScore(const TreeNode *node, float c, float logParentVisit);
