@@ -8,7 +8,8 @@
 const char* LOG_FILE = "MCTS.log";
 const float Cp = 2.0f;
 const float SEARCH_TIME = 1.0f;
-const int	EXPAND_THRESHOLD = 10;
+const int	EXPAND_THRESHOLD = 1;
+const bool	ENABLE_MULTI_THREAD = false;
 
 TreeNode::TreeNode(TreeNode *p)
 {
@@ -69,7 +70,7 @@ int MCTS::Search(Game *state)
 	clock_t startTime = clock();
 
 	thread threads[THREAD_NUM_MAX];
-	int thread_num = thread::hardware_concurrency();
+	int thread_num = ENABLE_MULTI_THREAD ? thread::hardware_concurrency() : 1;
 
 	for (int i = 0; i < thread_num; ++i)
 		threads[i] = thread(SearchThread, i, this, startTime);

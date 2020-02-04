@@ -14,6 +14,7 @@ void Board::Clear()
 	{
 		grids[i] = E_EMPTY;
 	}
+	ClearInfo();
 }
 
 void Board::Print(int lastChess)
@@ -77,52 +78,13 @@ bool Board::SetGrid(int row, int col, char value)
 	return true;
 }
 
-int Board::GetChessNumInLine(int id, ChessDirection dir)
+int Board::GetChessNumInLine(int id, ChessDirection direction)
 {
-	int row = 0, col = 0;
-	Board::Id2Coord(id, row, col);
+	int side = grids[id];
+	int i0 = (side == E_BLACK) ? 0 : 1; // this side
 
-	int dx = 0, dy = 0;
-	switch (dir)
-	{
-	case Board::E_L_R:
-		dx = 1;
-		break;
-	case Board::E_T_B:
-		dy = 1;
-		break;
-	case Board::E_TL_BR:
-		dx = dy = 1;
-		break;
-	case Board::E_TR_BL:
-		dx = 1;
-		dy = -1;
-		break;
-	}
-
-	int count = 0;
-	int side = GetGrid(row, col);
-
-	for (int i = 1; i < BOARD_SIZE; ++i)
-	{
-		if (GetGrid(row + dx * i, col + dy * i) != side)
-		{
-			count += i;
-			break;
-		}
-	}
-
-	for (int i = 1; i < BOARD_SIZE; ++i)
-	{
-		if (GetGrid(row - dx * i, col - dy * i) != side)
-		{
-			count += i;
-			break;
-		}
-	}
-	--count;
-
-	return count;
+	int num = numInfo[i0][id][direction] + numInfo[i0][id][7 - direction] + 1;
+	return num;
 }
 
 bool Board::CheckNeighbourChessNumWithSide(int id, int side, int radius, int num)
@@ -163,6 +125,150 @@ bool Board::CheckNeighbourChessNum(int id, int radius, int num)
 		}
 	}
 	return false;
+}
+
+bool Board::numInfoTemplatesReady = false;
+array<array<char, 8>, GRID_NUM> Board::numInfoTemplate;
+array<array<char, 8>, GRID_NUM> Board::maxNumInfoTemplate;
+
+void Board::InitNumInfoTemplates()
+{
+	for (int i = 0; i < GRID_NUM; ++i)
+	{
+		int row, col;
+		Board::Id2Coord(i, row, col);
+
+		for (int j = 0; j < 8; ++j)
+		{
+			Board::numInfoTemplate[i][j] = 0;
+
+			switch ((ChessDirection)j)
+			{
+			case E_LEFT:
+				Board::maxNumInfoTemplate[i][j] = col;
+				break;
+			case E_RIGHT:
+				Board::maxNumInfoTemplate[i][j] = BOARD_SIZE - col - 1;
+				break;
+			case E_UP:
+				Board::maxNumInfoTemplate[i][j] = row;
+				break;
+			case E_DOWN:
+				Board::maxNumInfoTemplate[i][j] = BOARD_SIZE - row - 1;
+				break;
+			case E_UP_LEFT:
+				Board::maxNumInfoTemplate[i][j] = min(row, col);
+				break;
+			case E_DOWN_RIGHT:
+				Board::maxNumInfoTemplate[i][j] = min(BOARD_SIZE - row - 1, BOARD_SIZE - col - 1);
+				break;
+			case E_UP_RIGHT:
+				Board::maxNumInfoTemplate[i][j] = min(row, BOARD_SIZE - col - 1);
+				break;
+			case E_DOWN_LEFT:
+				Board::maxNumInfoTemplate[i][j] = min(BOARD_SIZE - row - 1, col);
+				break;
+			}
+			Board::maxNumInfoTemplate[i][j] = min((int)Board::maxNumInfoTemplate[i][j], BOARD_SIZE);
+		}
+	}
+
+	Board::numInfoTemplatesReady = true;
+}
+
+void Board::ClearInfo()
+{
+	if (!Board::numInfoTemplatesReady)
+		Board::InitNumInfoTemplates();
+
+	for (int i = 0; i < 2; ++i)
+	{
+		numInfo[i] = Board::numInfoTemplate;
+		maxNumInfo[i] = Board::maxNumInfoTemplate;
+	}
+}
+
+void Board::UpdateInfo(int id)
+{
+	int row0, col0;
+	Board::Id2Coord(id, row0, col0);
+
+	int side = GetGrid(row0, col0);
+
+	int i0 = (side == E_BLACK) ? 0 : 1; // this side
+	int i1 = 1 - i0; // other side
+
+	for (int j = 0 ; j < 8; ++j)
+	{
+		int dx = 0, dy = 0;
+
+		switch ((ChessDirection)j)
+		{
+		case E_LEFT:
+			dx = -1;
+			break;
+		case E_RIGHT:
+			dx = 1;
+			break;
+		case E_UP:
+			dy = -1;
+			break;
+		case E_DOWN:
+			dy = 1;
+			break;
+		case E_UP_LEFT:
+			dx = dy = -1;
+			break;
+		case E_DOWN_RIGHT:
+			dx = dy = 1;
+			break;
+		case E_UP_RIGHT:
+			dx = 1; dy = -1;
+			break;
+		case E_DOWN_LEFT:
+			dx = -1; dy = 1;
+			break;
+		}
+		dy *= BOARD_SIZE;
+
+		// update numInfo for same side
+		int id1 = Board::Coord2Id(row0, col0);
+		int length = maxNumInfo[i0][id][j];
+
+		for (int k = 1; k <= length; ++k)
+		{
+			id1 += dx + dy;
+
+			int chess = grids[id1];
+
+			if (chess == E_EMPTY)
+			{
+				numInfo[i0][id1][7 - j] = numInfo[i0][id][7 - j] + k;
+			}
+
+			if (chess != side)
+				break;
+		}
+
+		//update maxNumInfo for other side
+		id1 = Board::Coord2Id(row0, col0);
+		length = maxNumInfo[i1][id][j];
+
+		for (int k = 1; k <= length; ++k)
+		{
+			id1 += dx + dy;
+
+			int chess = grids[id1];
+
+			if (chess == E_EMPTY)
+			{
+				maxNumInfo[i1][id1][7 - j] = k - 1;
+			}
+
+			if (chess == side)
+				break;
+		}
+	}
 }
 
 int Board::Coord2Id(int row, int col)
@@ -209,6 +315,7 @@ bool GameBase::PutChess(int id)
 
 	int side = GetSide();
 	board.grids[id] = side;
+	board.UpdateInfo(id);
 
 	lastMove = id;
 
@@ -260,13 +367,12 @@ int GameBase::GetSide()
 
 bool GameBase::IsWinThisTurn(int move)
 {
-	int maxLine_L_R = board.GetChessNumInLine(move, Board::E_L_R);
-	int maxLine_T_B = board.GetChessNumInLine(move, Board::E_T_B);
-	int maxLine_TL_BR = board.GetChessNumInLine(move, Board::E_TL_BR);
-	int maxLine_TR_BL = board.GetChessNumInLine(move, Board::E_TR_BL);
-	int maxInLine = max(maxLine_L_R, max(maxLine_T_B, max(maxLine_TL_BR, maxLine_TR_BL)));
-
-	return maxInLine >= WIN_COUNT;
+	for (int i = 0; i < 4; ++i)
+	{
+		if (board.GetChessNumInLine(move, (Board::ChessDirection)i) >= WIN_COUNT)
+			return true;
+	}
+	return false;
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -290,8 +396,23 @@ void Game::Regret(int step)
 		board.grids[record.back()] = Board::E_EMPTY;
 		record.pop_back();
 	}
+	RebuildBoardInfo();
 
 	lastMove = record.empty() ? -1 : record.back();
+}
+
+void Game::RebuildBoardInfo()
+{
+	board.Clear();
+
+	for (int i = 0; i < record.size(); ++i)
+	{
+		int side = (i % 2 == 0) ? Board::E_BLACK : Board::E_WHITE;
+		int id = record[i];
+
+		board.grids[id] = side;
+		board.UpdateInfo(id);
+	}
 }
 
 void Game::Print()

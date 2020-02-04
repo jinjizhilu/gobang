@@ -19,36 +19,51 @@ class Board
 public:
 	enum Chess
 	{
-		E_EMPTY,
+		E_EMPTY = 0,
 		E_BLACK,
 		E_WHITE,
 		E_INVALID,
 	};
 	
 	enum ChessDirection {
-		E_L_R,
-		E_T_B,
-		E_TL_BR,
-		E_TR_BL,
+		E_LEFT = 0,
+		E_UP,
+		E_UP_LEFT,
+		E_UP_RIGHT,
+		E_DOWN_LEFT,
+		E_DOWN_RIGHT,
+		E_DOWN,
+		E_RIGHT,
 	};
 
 	Board();
 
 	void Clear();
 	void Print(int lastChess);
-	int GetChessNumInLine(int id, ChessDirection dir);
+	int GetChessNumInLine(int id, ChessDirection direction);
 	bool CheckNeighbourChessNumWithSide(int id, int side, int radius, int num);
 	bool CheckNeighbourChessNum(int id, int radius, int num);
+
+	void ClearInfo();
+	void UpdateInfo(int id);
 
 	static int Coord2Id(int row, int col);
 	static void Id2Coord(int id, int &row, int &col);
 	static bool IsValidCoord(int row, int col);
 
 	array<char, GRID_NUM> grids;
+	array<array<char, 8>, GRID_NUM> numInfo[2];
+	array<array<char, 8>, GRID_NUM> maxNumInfo[2];
 
 private:
 	char GetGrid(int row, int col);
 	bool SetGrid(int row, int col, char value);
+
+	static void InitNumInfoTemplates();
+
+	static array<array<char, 8>, GRID_NUM> numInfoTemplate;
+	static array<array<char, 8>, GRID_NUM> maxNumInfoTemplate;
+	static bool numInfoTemplatesReady;
 };
 
 class GameBase
@@ -94,6 +109,8 @@ public:
 	static string Id2Str(int id);
 
 private:
+	void RebuildBoardInfo();
+
 	vector<uint8_t> record;
 };
 
