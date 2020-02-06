@@ -185,6 +185,7 @@ void Board::ClearInfo()
 	{
 		numInfo[i] = Board::numInfoTemplate;
 		maxNumInfo[i] = Board::maxNumInfoTemplate;
+		winGrid[i] = 0xff;
 	}
 }
 
@@ -244,6 +245,12 @@ void Board::UpdateInfo(int id)
 			if (chess == E_EMPTY)
 			{
 				numInfo[i0][id1][7 - j] = numInfo[i0][id][7 - j] + k;
+
+				int total = numInfo[i0][id1][7 - j] + numInfo[i0][id1][j] + 1;
+				if (total >= WIN_COUNT)
+				{
+					winGrid[i0] = id1; // set win grid for this side
+				}
 			}
 
 			if (chess != side)
@@ -268,6 +275,11 @@ void Board::UpdateInfo(int id)
 			if (chess == side)
 				break;
 		}
+	}
+
+	if (id == winGrid[i1])
+	{
+		winGrid[i1] = 0xff; // clear win grid for other side
 	}
 }
 
@@ -373,6 +385,20 @@ bool GameBase::IsWinThisTurn(int move)
 			return true;
 	}
 	return false;
+}
+
+int GameBase::GetKeyGridId()
+{
+	int i0 = (GetSide() == Board::E_BLACK) ? 0 : 1;
+	int i1 = 1 - i0;
+
+	if (board.winGrid[i0] != 0xff)
+		return board.winGrid[i0];
+
+	if (board.winGrid[i1] != 0xff)
+		return board.winGrid[i1];
+
+	return -1;
 }
 
 ///////////////////////////////////////////////////////////////////

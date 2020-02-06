@@ -54,6 +54,7 @@ public:
 	array<char, GRID_NUM> grids;
 	array<array<char, 8>, GRID_NUM> numInfo[2];
 	array<array<char, 8>, GRID_NUM> maxNumInfo[2];
+	uint8_t winGrid[2];
 
 private:
 	char GetGrid(int row, int col);
@@ -85,6 +86,7 @@ public:
 	bool IsLonelyGrid(int id, int radius);
 	bool IsWinThisTurn(int move);
 	void UpdateValidGrids();
+	int GetKeyGridId();
 
 	Board board;
 	int state;

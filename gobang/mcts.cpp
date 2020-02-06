@@ -7,9 +7,9 @@
 
 const char* LOG_FILE = "MCTS.log";
 const float Cp = 2.0f;
-const float SEARCH_TIME = 1.0f;
-const int	EXPAND_THRESHOLD = 1;
-const bool	ENABLE_MULTI_THREAD = false;
+const float SEARCH_TIME = 2.0f;
+const int	EXPAND_THRESHOLD = 3;
+const bool	ENABLE_MULTI_THREAD = true;
 
 TreeNode::TreeNode(TreeNode *p)
 {
@@ -141,8 +141,19 @@ bool MCTS::PreExpandTree(TreeNode *node)
 
 TreeNode* MCTS::ExpandTree(TreeNode *node)
 {
-	int move = node->validGrids[node->validGridCount - 1];
-	--(node->validGridCount);
+	int move = -1;
+	int keyGridId = node->game->GetKeyGridId();
+
+	if (keyGridId != -1)
+	{
+		move = keyGridId;
+		node->validGridCount = 0;
+	}
+	else
+	{
+		move = node->validGrids[node->validGridCount - 1];
+		--(node->validGridCount);
+	}
 
 	TreeNode *newNode = NewTreeNode(node);
 	node->children.push_back(newNode);
@@ -194,7 +205,15 @@ float MCTS::DefaultPolicy(TreeNode *node, int id)
 
 	while (gameCache[id].state == GameBase::E_NORMAL)
 	{
-		gameCache[id].PutRandomChess();
+		int keyGridId = gameCache[id].GetKeyGridId();
+		if (keyGridId != -1)
+		{
+			gameCache[id].PutChess(keyGridId);
+		}
+		else
+		{
+			gameCache[id].PutRandomChess();
+		}
 	}
 	float value = (gameCache[id].state == root->game->GetSide()) ? 1.f : 0;
 
