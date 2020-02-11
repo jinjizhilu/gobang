@@ -1,5 +1,6 @@
 #include "game.h"
 #include <cstdlib>
+#include <cassert>
 
 #define max(a, b) ((a > b) ? a : b)
 
@@ -58,6 +59,38 @@ void Board::Print(int lastChess)
 			}
 		}
 		cout << endl;
+	}
+}
+
+void Board::PrintScore(int side)
+{
+	int i0 = (side == Board::E_BLACK) ? 0 : 1;
+
+	cout << " ";
+	for (int i = 1; i <= BOARD_SIZE; ++i)
+	{
+		if (i < 10)
+			printf("%5d", i);
+		else
+			printf("    %c", 'a' + i - 10);
+	}
+	cout << endl;
+
+	for (int i = 0; i < BOARD_SIZE; ++i)
+	{
+		printf("%c", 'A' + i);
+
+		for (int j = 0; j < BOARD_SIZE; ++j)
+		{
+			int id = Board::Coord2Id(i, j);
+			int score = scoreInfo[i0][id];
+
+			if (score != 0)
+				printf("%5d", score);
+			else
+				printf("     ");
+		}
+		cout << endl << endl;
 	}
 }
 
@@ -128,6 +161,7 @@ bool Board::CheckNeighbourChessNum(int id, int radius, int num)
 }
 
 bool Board::numInfoTemplatesReady = false;
+array<short, GRID_NUM> Board::scoreInfoTemplate;
 array<array<char, 8>, GRID_NUM> Board::numInfoTemplate;
 array<array<char, 8>, GRID_NUM> Board::maxNumInfoTemplate;
 
@@ -135,6 +169,8 @@ void Board::InitNumInfoTemplates()
 {
 	for (int i = 0; i < GRID_NUM; ++i)
 	{
+		Board::scoreInfoTemplate[i] = 0;
+
 		int row, col;
 		Board::Id2Coord(i, row, col);
 
@@ -183,10 +219,15 @@ void Board::ClearInfo()
 
 	for (int i = 0; i < 2; ++i)
 	{
+		scoreInfo[i] = Board::scoreInfoTemplate;
 		numInfo[i] = Board::numInfoTemplate;
+		numInfoEx[i] = Board::numInfoTemplate;
 		maxNumInfo[i] = Board::maxNumInfoTemplate;
-		winGrid[i] = 0xff;
 	}
+
+	keyGrid = 0xff;
+	greatGridNum = 0;
+	goodGridNum = 0;
 }
 
 void Board::UpdateInfo(int id)
@@ -245,15 +286,35 @@ void Board::UpdateInfo(int id)
 			if (chess == E_EMPTY)
 			{
 				numInfo[i0][id1][7 - j] = numInfo[i0][id][7 - j] + k;
-
-				int total = numInfo[i0][id1][7 - j] + numInfo[i0][id1][j] + 1;
-				if (total >= WIN_COUNT)
-				{
-					winGrid[i0] = id1; // set win grid for this side
-				}
+				UpdateScore(i0, id1);
 			}
 
 			if (chess != side)
+				break;
+		}
+
+		// update numInfoEx for same side & 1 empty
+		id1 = Board::Coord2Id(row0, col0);
+		length = maxNumInfo[i0][id][j];
+		int emptyCount = 0;
+
+		for (int k = 1; k <= length; ++k)
+		{
+			id1 += dx + dy;
+
+			int chess = grids[id1];
+
+			if (chess == E_EMPTY)
+			{
+				if (emptyCount == 1)
+				{
+					numInfoEx[i0][id1][7 - j] = numInfo[i0][id][7 - j] + k;
+					UpdateScore(i0, id1);
+				}
+				++emptyCount;
+			}
+
+			if (chess != side && emptyCount > 1)
 				break;
 		}
 
@@ -270,6 +331,12 @@ void Board::UpdateInfo(int id)
 			if (chess == E_EMPTY)
 			{
 				maxNumInfo[i1][id1][7 - j] = k - 1;
+
+				char &countEx = numInfoEx[i1][id1][7 - j];
+				if (countEx > k - 1)
+					countEx = 0;
+
+				UpdateScore(i1, id1);
 			}
 
 			if (chess == side)
@@ -277,9 +344,156 @@ void Board::UpdateInfo(int id)
 		}
 	}
 
-	if (id == winGrid[i1])
+	for (int i = 0; i < 2; ++i)
+		scoreInfo[i][id] = -side;
+
+	UpdateGridsInfo(i1); // grids info for next turn
+}
+
+void Board::UpdateScore(int i0, int id)
+{
+	int totalScore = 0;
+
+	for (int i = 0; i < 4; ++i)
 	{
-		winGrid[i1] = 0xff; // clear win grid for other side
+		int score1 = 0, score2 = 0;
+
+		int num1 = numInfo[i0][id][i];
+		int num2 = numInfo[i0][id][7 - i];
+		int total1 = num1 + num2 + 1;
+
+		int max1 = maxNumInfo[i0][id][i];
+		int max2 = maxNumInfo[i0][id][7 - i];
+		int total2 = max1 + max2 + 1;
+
+		bool isOpen1 = max1 > num1;
+		bool isOpen2 = max2 > num2;
+		bool isTotalOpen = total2 > WIN_COUNT;
+
+		int num3 = numInfoEx[i0][id][i];
+		int num4 = numInfoEx[i0][id][7 - i];
+		int total3 = num1 + num4 + 1;
+		int total4 = num2 + num3 + 1;
+		int total5 = max(total3, total4);
+
+		bool isOpen3 = max1 > num3;
+		bool isOpen4 = max2 > num4;
+
+		if (total2 >= WIN_COUNT)
+		{
+			if (total1 >= WIN_COUNT) // continuous 5
+			{
+				totalScore = WIN_SCORE;
+				break;
+			}
+			else if (total1 == WIN_COUNT - 1)
+			{
+				if (isOpen1 && isOpen2 && isTotalOpen) // open 4
+				{
+					score1 = WINNING_SCORE;
+				}
+				else // half-open 4
+				{
+					score1 = CHECKMATE_SCORE;
+				}
+			}
+			else if (total1 == WIN_COUNT - 2)
+			{
+				if (isOpen1 && isOpen2 && isTotalOpen) // open 3
+				{
+					score1 = GREAT_SCORE;
+				}
+				else // half-open 3
+				{
+					score1 = OTHER_SCORE;
+				}
+			}
+			else if (total1 == WIN_COUNT - 3)
+			{
+				if (isOpen1 && isOpen2 && isTotalOpen) // open 2
+				{
+					score1 = OTHER_SCORE;
+				}
+			}
+
+			// jump situations
+			if (total5 >= WIN_COUNT)
+			{
+				if (total3 >= WIN_COUNT && total4 >= WIN_COUNT) // 2 jump 4
+				{
+					score2 = CHECKMATE_SCORE * 2;
+				}
+				else // jump 4
+				{
+					score2 = CHECKMATE_SCORE;
+				}
+			}
+			else if (total5 == WIN_COUNT - 1)
+			{
+				if (total3 == WIN_COUNT - 2 && isOpen1 && isOpen4 && isTotalOpen)
+				{
+					score2 = GOOD_SCORE; // jump 3
+				}
+				else if (total4 == WIN_COUNT - 2 && isOpen2 && isOpen3 && isTotalOpen)
+				{
+					score2 = GOOD_SCORE; // jump 3
+				}
+				else
+				{
+					score2 = OTHER_SCORE; // half-open jump 3
+				}
+			}
+			else if (total5 == WIN_COUNT - 2 && isTotalOpen)
+			{
+				if (total3 == WIN_COUNT - 2 && isOpen1 && isOpen4)
+				{
+					score2 = OTHER_SCORE; // jump 2
+				}
+				else if (total4 == WIN_COUNT - 2 && isOpen2 && isOpen3)
+				{
+					score2 = OTHER_SCORE; // jump 2
+				}
+			}
+		}
+		totalScore += max(score1, score2);
+	}
+	scoreInfo[i0][id] = totalScore;
+}
+
+void Board::UpdateGridsInfo(int i0)
+{
+	int i1 = 1 - i0;
+
+	int bestScore = WIN_THRESHOLD - 1;
+	keyGrid = 0xff;
+
+	greatGridNum = 0;
+	goodGridNum = 0;
+	poorGridNum = 0;
+
+	for (int i = 0; i < GRID_NUM; ++i)
+	{
+		int score0 = scoreInfo[i0][i];
+		int score1 = scoreInfo[i1][i];
+
+		if (score0 + score1 / 2 > bestScore)
+		{
+			bestScore = score0 + score1 / 2;
+			keyGrid = i;
+		}
+		else if (score0 >= WINNING_ATTEMP_THRESHOLD || score1 >= WINNING_ATTEMP_THRESHOLD)
+		{
+			assert(greatGridNum < GREAT_GRID_MAX);
+			greatGrids[greatGridNum++] = i;
+		}
+		else if (score0 > 0 || score1 > 0)
+		{
+			otherGrids[goodGridNum++] = i;
+		}
+		else
+		{
+			otherGrids[GRID_NUM - ++poorGridNum] = i;
+		}
 	}
 }
 
@@ -343,33 +557,37 @@ bool GameBase::PutChess(int id)
 	return true;
 }
 
-bool GameBase::PutRandomChess()
-{
-	int id = rand() % validGridCount;
-	swap(validGrids[id], validGrids[validGridCount - 1]);
-	int gridId = validGrids[validGridCount - 1];
-
-	return PutChess(gridId);
-}
-
 void GameBase::UpdateValidGrids()
 {
-	for (int i = validGridCount - 1; i >= 0; --i)
+	if (board.keyGrid != 0xff)
 	{
-		if (validGrids[i] == lastMove)
-		{
-			swap(validGrids[i], validGrids[validGridCount - 1]);
-			--validGridCount;
-			break;
-		}
+		validGrids[0] = board.keyGrid;
+		validGridCount = 1;
 	}
-}
-
-bool GameBase::IsLonelyGrid(int id, int radius)
-{
-	//int oppnentSide = ((turn + 1) % 2 == 1) ? Board::E_BALCK : Board::E_WHITE;
-	int hasNeighbour = board.CheckNeighbourChessNum(id, radius, 1);
-	return !hasNeighbour;
+	else if (board.greatGridNum > 0)
+	{
+		for (int i = 0; i < board.greatGridNum; ++i)
+		{
+			validGrids[i] = board.greatGrids[i];
+		}
+		validGridCount = board.greatGridNum;
+	}
+	else if (board.goodGridNum > 0)
+	{
+		for (int i = 0; i < board.goodGridNum; ++i)
+		{
+			validGrids[i] = board.otherGrids[i];
+		}
+		validGridCount = board.goodGridNum;
+	}
+	else
+	{
+		for (int i = 0; i < board.poorGridNum; ++i)
+		{
+			validGrids[i] = board.otherGrids[GRID_NUM - i - 1];
+		}
+		validGridCount = board.poorGridNum;
+	}
 }
 
 int GameBase::GetSide()
@@ -387,18 +605,10 @@ bool GameBase::IsWinThisTurn(int move)
 	return false;
 }
 
-int GameBase::GetKeyGridId()
+int GameBase::GetNextMove()
 {
-	int i0 = (GetSide() == Board::E_BLACK) ? 0 : 1;
-	int i1 = 1 - i0;
-
-	if (board.winGrid[i0] != 0xff)
-		return board.winGrid[i0];
-
-	if (board.winGrid[i1] != 0xff)
-		return board.winGrid[i1];
-
-	return -1;
+	int id = rand() % validGridCount;
+	return validGrids[id];
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -448,6 +658,9 @@ void Game::Print()
 	printf("=== Current State: %s ===\n", stateText[state].c_str());
 	board.Print(lastMove);
 	cout << endl;
+
+//	board.PrintScore(3 - GetSide());
+//	cout << endl;
 }
 
 int Game::Str2Id(const string &str)

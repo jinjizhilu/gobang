@@ -111,49 +111,18 @@ TreeNode* MCTS::TreePolicy(TreeNode *node)
 
 bool MCTS::PreExpandTree(TreeNode *node)
 {
-	bool skipLonelyGrid = true;
-	if (skipLonelyGrid)
+	if (node->validGridCount > 0)
 	{
-		int radius = (node->game->turn < 20) ? 1 : 2;
-
-		while (node->validGridCount > 0)
-		{
-			int id = rand() % node->validGridCount;
-			swap(node->validGrids[id], node->validGrids[node->validGridCount - 1]);
-			int move = node->validGrids[node->validGridCount - 1];
-
-			if (!node->game->IsLonelyGrid(move, radius))
-				break;
-
-			--(node->validGridCount);
-		}
-	}
-	else
-	{
-		if (node->validGridCount > 0)
-		{
-			int id = rand() % node->validGridCount;
-			swap(node->validGrids[id], node->validGrids[node->validGridCount - 1]);
-		}
+		int id = rand() % node->validGridCount;
+		swap(node->validGrids[id], node->validGrids[node->validGridCount - 1]);
 	}
 	return node->validGridCount > 0;
 }
 
 TreeNode* MCTS::ExpandTree(TreeNode *node)
 {
-	int move = -1;
-	int keyGridId = node->game->GetKeyGridId();
-
-	if (keyGridId != -1)
-	{
-		move = keyGridId;
-		node->validGridCount = 0;
-	}
-	else
-	{
-		move = node->validGrids[node->validGridCount - 1];
-		--(node->validGridCount);
-	}
+	int move = node->validGrids[node->validGridCount - 1];
+	--(node->validGridCount);
 
 	TreeNode *newNode = NewTreeNode(node);
 	node->children.push_back(newNode);
@@ -205,15 +174,8 @@ float MCTS::DefaultPolicy(TreeNode *node, int id)
 
 	while (gameCache[id].state == GameBase::E_NORMAL)
 	{
-		int keyGridId = gameCache[id].GetKeyGridId();
-		if (keyGridId != -1)
-		{
-			gameCache[id].PutChess(keyGridId);
-		}
-		else
-		{
-			gameCache[id].PutRandomChess();
-		}
+		int move = gameCache[id].GetNextMove();
+		gameCache[id].PutChess(move);
 	}
 	float value = (gameCache[id].state == root->game->GetSide()) ? 1.f : 0;
 
