@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <list>
+#include <unordered_map>
 
 #pragma warning (disable:4244)
 #pragma warning (disable:4018)
@@ -14,7 +15,7 @@ const int BOARD_SIZE = 15;
 const int WIN_COUNT = 5;
 const int GRID_NUM = BOARD_SIZE * BOARD_SIZE;
 
-const int WIN_SCORE = 9999; // continuous 5
+const int WIN_SCORE = 5000; // continuous 5
 const int WINNING_SCORE = 1000; // open 4
 const int WIN_THRESHOLD = 500;
 const int WINNING_ATTEMP_THRESHOLD = 100;
@@ -52,23 +53,19 @@ public:
 	void Print(int lastChess);
 	void PrintScore(int side);
 	int GetChessNumInLine(int id, ChessDirection direction);
-	bool CheckNeighbourChessNumWithSide(int id, int side, int radius, int num);
-	bool CheckNeighbourChessNum(int id, int radius, int num);
 
-	void ClearInfo();
-	void UpdateInfo(int id);
-	void UpdateScore(int i0, int id);
+	void UpdatScoreInfo(int id);
+	void UpdateScore(int id, int id0, ChessDirection direction, int side);
 	void UpdateGridsInfo(int i0);
 
 	static int Coord2Id(int row, int col);
 	static void Id2Coord(int id, int &row, int &col);
 	static bool IsValidCoord(int row, int col);
+	static void Direction2DxDy(ChessDirection direction, int &dx, int &dy);
+	static int Line2Key(array<char, 9> line);
 
 	array<char, GRID_NUM> grids;
 	array<short, GRID_NUM> scoreInfo[2];
-	array<array<char, 8>, GRID_NUM> numInfo[2]; // continuous grids with same color
-	array<array<char, 8>, GRID_NUM> numInfoEx[2]; // continuous grids with same color and 1 empty grid
-	array<array<char, 8>, GRID_NUM> maxNumInfo[2]; // continuous grids with same color or empty grid
 
 	uint8_t keyGrid;
 	array<uint8_t, GREAT_GRID_MAX> greatGrids;
@@ -81,12 +78,11 @@ private:
 	char GetGrid(int row, int col);
 	bool SetGrid(int row, int col, char value);
 
-	static void InitNumInfoTemplates();
+	static void InitLineScoreDict();
+	static short CalcLineScore(array<char, 9> line);
 
-	static array<short, GRID_NUM> scoreInfoTemplate;
-	static array<array<char, 8>, GRID_NUM> numInfoTemplate;
-	static array<array<char, 8>, GRID_NUM> maxNumInfoTemplate;
-	static bool numInfoTemplatesReady;
+	static unordered_map<int, int> lineScoreDict;
+	static bool isLineScoreDictReady;
 };
 
 class GameBase
