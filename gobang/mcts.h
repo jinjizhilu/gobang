@@ -17,6 +17,7 @@ public:
 	float winRate;
 	float expandFactor;
 	int validGridCount;
+	int gridLevel;
 	GameBase *game;
 
 	TreeNode *parent;

@@ -3,6 +3,7 @@
 #include <cassert>
 
 #define max(a, b) ((a > b) ? a : b)
+#define PRINT_SCORE 0
 
 Board::Board()
 {
@@ -131,8 +132,10 @@ int Board::GetChessNumInLine(int id, ChessDirection direction)
 	{
 		row -= dy; col -= dx;
 
-		if (GetGrid(row, col) == side)
-			++leftCount;
+		if (GetGrid(row, col) != side)
+			break;
+
+		++leftCount;
 	}
 
 	int rightCount = 0;
@@ -141,8 +144,10 @@ int Board::GetChessNumInLine(int id, ChessDirection direction)
 	{
 		row += dy; col += dx;
 
-		if (GetGrid(row, col) == side)
-			++rightCount;
+		if (GetGrid(row, col) != side)
+			break;
+
+		++rightCount;
 	}
 
 	int num = leftCount + rightCount + 1;
@@ -151,7 +156,7 @@ int Board::GetChessNumInLine(int id, ChessDirection direction)
 }
 
 bool Board::isLineScoreDictReady = false;
-unordered_map<int, int> Board::lineScoreDict;
+array<int, LINE_ID_MAX> Board::lineScoreDict;
 
 void Board::InitLineScoreDict()
 {
@@ -240,7 +245,7 @@ short Board::CalcLineScore(array<char, 9> line)
 	int emptyCount = 0;
 	for (int i = 3; i >= 0; --i)
 	{
-		if (line[i] == otherSide)
+		if (line[i] == otherSide || line[i] == E_INVALID)
 			break;
 
 		if (line[i] == E_EMPTY && ++emptyCount > 1)
@@ -249,14 +254,14 @@ short Board::CalcLineScore(array<char, 9> line)
 		++num3;
 	}
 
-	if (num3 == emptyCount) // all empty
+	if (num3 == emptyCount || emptyCount == 0) // all empty or no empty
 		num3 = 0;
 
 	int num4 = 0;
 	emptyCount = 0;
 	for (int i = 5; i <= 8; ++i)
 	{
-		if (line[i] == otherSide)
+		if (line[i] == otherSide || line[i] == E_INVALID)
 			break;
 
 		if (line[i] == E_EMPTY && ++emptyCount > 1)
@@ -265,7 +270,7 @@ short Board::CalcLineScore(array<char, 9> line)
 		++num4;
 	}
 
-	if (num4 == emptyCount) // all empty
+	if (num4 == emptyCount || emptyCount == 0) // all empty or no empty
 		num4 = 0;
 
 
@@ -356,11 +361,11 @@ short Board::CalcLineScore(array<char, 9> line)
 		}
 		else if (total5 == WIN_COUNT - 1)
 		{
-			if (total3 == WIN_COUNT - 2 && isOpen1 && isOpen4 && isTotalOpen)
+			if (total3 >= WIN_COUNT - 2 && isOpen1 && isOpen4 && isTotalOpen)
 			{
 				score2 = GOOD_SCORE; // jump 3
 			}
-			else if (total4 == WIN_COUNT - 2 && isOpen2 && isOpen3 && isTotalOpen)
+			else if (total4 >= WIN_COUNT - 2 && isOpen2 && isOpen3 && isTotalOpen)
 			{
 				score2 = GOOD_SCORE; // jump 3
 			}
@@ -392,6 +397,7 @@ void Board::UpdatScoreInfo(int id)
 	Board::Id2Coord(id, row0, col0);
 
 	int side = GetGrid(row0, col0);
+	int otherSide = 3 - side;
 
 	int i0 = (side == E_BLACK) ? 0 : 1; // this side
 	int i1 = 1 - i0; // other side
@@ -401,19 +407,33 @@ void Board::UpdatScoreInfo(int id)
 		int dx, dy;
 		Board::Direction2DxDy((ChessDirection)j, dx, dy);
 
+		bool needUpdate0 = true, needUpdate1 = true;
 		int row = row0, col = col0;
 		for (int k = 1; k <= 4; ++k)
 		{
 			row += dy; col += dx;
 
-			int id1 = Board::Coord2Id(row, col);
 			int chess = GetGrid(row, col);
 
 			if (chess == E_EMPTY)
 			{
-				UpdateScore(id1, id, (ChessDirection)j, E_BLACK);
-				UpdateScore(id1, id, (ChessDirection)j, E_WHITE);
+				if (needUpdate0)
+					UpdateScore(row, col, row0, col0, (ChessDirection)j, side);
+
+				if (needUpdate1)
+					UpdateScore(row, col, row0, col0, (ChessDirection)j, otherSide);
 			}
+			else if (chess == side)
+			{
+				needUpdate1 = false; // no need to update other side
+			}
+			else if (chess == otherSide)
+			{
+				needUpdate0 = false; // no need to udpate this side
+			}
+
+			if (!needUpdate0 && !needUpdate1)
+				break;
 		}
 	}
 
@@ -423,49 +443,45 @@ void Board::UpdatScoreInfo(int id)
 	UpdateGridsInfo(i1); // grids info for next turn
 }
 
-void Board::UpdateScore(int id, int id0, ChessDirection direction, int side)
+void Board::UpdateScore(int row, int col, int rowX, int colX, ChessDirection direction, int side)
 {
-	int i0 = (side == E_BLACK) ? 0 : 1; // this side
-
-	array<char, 9> line, line0;
-
-	int row0, col0;
-	Board::Id2Coord(id, row0, col0);
+	int key = 0, key0 = 0;
 
 	int dx, dy;
 	Board::Direction2DxDy(direction, dx, dy);
 
-	int row = row0, col = col0;
+	int row1 = row, col1 = col;
 	for (int i = 0; i < 4; ++i)
 	{
-		row -= dy; col -= dx;
+		row1 -= dy; col1 -= dx;
 
-		line[3 - i] = line0[3 - i] = GetGrid(row, col);
+		int value = GetGrid(row1, col1) << ((3 - i) * 2);
+		key += value;
 
-		if (Board::Coord2Id(row, col) == id0)
-			line0[3 - i] = E_EMPTY;
+		if (!(row1 == rowX && col1 == colX))
+			key0 += value;
 	}
 
-	row = row0; col = col0;
+	row1 = row, col1 = col;
 	for (int i = 0; i < 4; ++i)
 	{
-		row += dy; col += dx;
+		row1 += dy; col1 += dx;
 
-		line[5 + i] = line0[5 + i] = GetGrid(row, col);
+		int value = GetGrid(row1, col1) << ((5 + i) * 2);
+		key += value;
 
-		if (Board::Coord2Id(row, col) == id0)
-			line0[5 + i] = E_EMPTY;
+		if (!(row1 == rowX && col1 == colX))
+			key0 += value;
 	}
 
-	line[4] = line0[4] = side;
-
-	int key0 = Board::Line2Key(line0);
-	int key = Board::Line2Key(line);
+	key0 += (side << (4 * 2));
+	key += (side << (4 * 2));
 
 	int lineScore0 = lineScoreDict[key0];
 	int lineScore = lineScoreDict[key];
 
-	scoreInfo[i0][id] += lineScore - lineScore0;
+	int i0 = (side == E_BLACK) ? 0 : 1; // this side
+	scoreInfo[i0][Board::Coord2Id(row, col)] += lineScore - lineScore0;
 }
 
 void Board::UpdateGridsInfo(int i0)
@@ -478,6 +494,7 @@ void Board::UpdateGridsInfo(int i0)
 	greatGridNum = 0;
 	goodGridNum = 0;
 	poorGridNum = 0;
+	otherGridNum = 0;
 
 	for (int i = 0; i < GRID_NUM; ++i)
 	{
@@ -489,18 +506,21 @@ void Board::UpdateGridsInfo(int i0)
 			bestScore = score0 + score1 / 2;
 			keyGrid = i;
 		}
-		else if (score0 >= WINNING_ATTEMP_THRESHOLD || score1 >= WINNING_ATTEMP_THRESHOLD)
+		else if (score0 >= WINNING_ATTEMP_THRESHOLD || score1 >= COUNTER_WINNING_ATTEMP_THRESHOLD)
 		{
-			assert(greatGridNum < GREAT_GRID_MAX);
-			greatGrids[greatGridNum++] = i;
+			goodGrids[greatGridNum++] = i;
+		}
+		else if (score0 >= GOOD_THRESHOLD || score1 >= GOOD_THRESHOLD)
+		{
+			goodGrids[GRID_NUM - ++goodGridNum] = i;
 		}
 		else if (score0 > 0 || score1 > 0)
 		{
-			otherGrids[goodGridNum++] = i;
+			otherGrids[poorGridNum++] = i;
 		}
 		else
 		{
-			otherGrids[GRID_NUM - ++poorGridNum] = i;
+			otherGrids[GRID_NUM - ++otherGridNum] = i;
 		}
 	}
 }
@@ -553,17 +573,6 @@ void Board::Direction2DxDy(ChessDirection direction, int &dx, int &dy)
 		break;
 	}
 }
-
-int Board::Line2Key(array<char, 9> line)
-{
-	int key = 0;
-	for (int i = 0; i < 9; ++i)
-	{
-		key += (line[i] << (i * 2));
-	}
-	return key;
-}
-
 ///////////////////////////////////////////////////////////////////////
 
 GameBase::GameBase()
@@ -619,7 +628,7 @@ void GameBase::UpdateValidGrids()
 	{
 		for (int i = 0; i < board.greatGridNum; ++i)
 		{
-			validGrids[i] = board.greatGrids[i];
+			validGrids[i] = board.goodGrids[i];
 		}
 		validGridCount = board.greatGridNum;
 	}
@@ -627,18 +636,40 @@ void GameBase::UpdateValidGrids()
 	{
 		for (int i = 0; i < board.goodGridNum; ++i)
 		{
-			validGrids[i] = board.otherGrids[i];
+			validGrids[i] = board.goodGrids[GRID_NUM - i - 1];
 		}
 		validGridCount = board.goodGridNum;
 	}
-	else
+	else if (board.poorGridNum > 0)
 	{
 		for (int i = 0; i < board.poorGridNum; ++i)
 		{
-			validGrids[i] = board.otherGrids[GRID_NUM - i - 1];
+			validGrids[i] = board.otherGrids[i];
 		}
 		validGridCount = board.poorGridNum;
 	}
+	else
+	{
+		for (int i = 0; i < board.otherGridNum; ++i)
+		{
+			validGrids[i] = board.otherGrids[GRID_NUM - i - 1];
+		}
+		validGridCount = board.otherGridNum;
+	}
+}
+
+bool GameBase::UpdateValidGridsExtra()
+{
+	if (board.keyGrid == 0xff && board.greatGridNum > 0 && board.goodGridNum > 0)
+	{
+		for (int i = 0; i < board.goodGridNum; ++i)
+		{
+			validGrids[i] = board.goodGrids[GRID_NUM - i - 1];
+		}
+		validGridCount = board.goodGridNum;
+		return true;
+	}
+	return false;
 }
 
 int GameBase::GetSide()
@@ -710,8 +741,12 @@ void Game::Print()
 	board.Print(lastMove);
 	cout << endl;
 
-//	board.PrintScore(3 - GetSide());
-//	cout << endl;
+	if (PRINT_SCORE)
+	{
+		board.PrintScore(3 - GetSide());
+		board.PrintScore(GetSide());
+		cout << endl;
+	}
 }
 
 int Game::Str2Id(const string &str)

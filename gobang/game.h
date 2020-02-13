@@ -4,7 +4,6 @@
 #include <vector>
 #include <array>
 #include <list>
-#include <unordered_map>
 
 #pragma warning (disable:4244)
 #pragma warning (disable:4018)
@@ -17,13 +16,17 @@ const int GRID_NUM = BOARD_SIZE * BOARD_SIZE;
 
 const int WIN_SCORE = 5000; // continuous 5
 const int WINNING_SCORE = 1000; // open 4
-const int WIN_THRESHOLD = 500;
-const int WINNING_ATTEMP_THRESHOLD = 100;
 const int CHECKMATE_SCORE = 70; // half-open 4 or jump 4
 const int GREAT_SCORE = 60; // open 3
 const int GOOD_SCORE = 50; // jump 3
 const int OTHER_SCORE = 5; // half-open 3 or open 2 or jump 2
-const int GREAT_GRID_MAX = 20;
+
+const int WIN_THRESHOLD = 500;
+const int WINNING_ATTEMP_THRESHOLD = 100;
+const int COUNTER_WINNING_ATTEMP_THRESHOLD = 50;
+const int GOOD_THRESHOLD = 10;
+
+const int LINE_ID_MAX = 262144; // 4 ^ 9
 
 class Board
 {
@@ -55,24 +58,24 @@ public:
 	int GetChessNumInLine(int id, ChessDirection direction);
 
 	void UpdatScoreInfo(int id);
-	void UpdateScore(int id, int id0, ChessDirection direction, int side);
+	void UpdateScore(int row, int col, int rowX, int colX, ChessDirection direction, int side);
 	void UpdateGridsInfo(int i0);
 
 	static int Coord2Id(int row, int col);
 	static void Id2Coord(int id, int &row, int &col);
 	static bool IsValidCoord(int row, int col);
 	static void Direction2DxDy(ChessDirection direction, int &dx, int &dy);
-	static int Line2Key(array<char, 9> line);
 
 	array<char, GRID_NUM> grids;
 	array<short, GRID_NUM> scoreInfo[2];
 
 	uint8_t keyGrid;
-	array<uint8_t, GREAT_GRID_MAX> greatGrids;
+	array<uint8_t, GRID_NUM> goodGrids;
 	array<uint8_t, GRID_NUM> otherGrids;
 	int greatGridNum;
 	int goodGridNum;
 	int poorGridNum;
+	int otherGridNum;
 
 private:
 	char GetGrid(int row, int col);
@@ -81,7 +84,7 @@ private:
 	static void InitLineScoreDict();
 	static short CalcLineScore(array<char, 9> line);
 
-	static unordered_map<int, int> lineScoreDict;
+	static array<int, LINE_ID_MAX> lineScoreDict;
 	static bool isLineScoreDictReady;
 };
 
@@ -103,6 +106,7 @@ public:
 	bool IsLonelyGrid(int id, int radius);
 	bool IsWinThisTurn(int move);
 	void UpdateValidGrids();
+	bool UpdateValidGridsExtra();
 	int GetNextMove();
 
 	Board board;

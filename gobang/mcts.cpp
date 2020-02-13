@@ -7,9 +7,11 @@
 
 const char* LOG_FILE = "MCTS.log";
 const float Cp = 2.0f;
-const float SEARCH_TIME = 2.0f;
+const float SEARCH_TIME = 1.0f;
 const int	EXPAND_THRESHOLD = 3;
-const bool	ENABLE_MULTI_THREAD = true;
+const bool	ENABLE_MULTI_THREAD = false;
+const int	FAST_STOP_STEP = 30;
+const int	TRY_MORE_NODE_THRESHOLD = 1000;
 
 TreeNode::TreeNode(TreeNode *p)
 {
@@ -19,6 +21,7 @@ TreeNode::TreeNode(TreeNode *p)
 	winRate = 0;
 	expandFactor = 0;
 	validGridCount = 0;
+	gridLevel = 0;
 	game = NULL;
 	parent = p;
 }
@@ -78,11 +81,7 @@ int MCTS::Search(Game *state)
 	for (int i = 0; i < thread_num; ++i)
 		threads[i].join();
 	
-	// use most visited child node as result
-	TreeNode *best = *max_element(root->children.begin(), root->children.end(), [this](const TreeNode *a, const TreeNode *b)
-	{
-		return a->visit < b->visit;
-	});
+	TreeNode *best = BestChild(root, 0);
 	int move = best->game->lastMove;
 
 	maxDepth = 0;
@@ -115,6 +114,22 @@ bool MCTS::PreExpandTree(TreeNode *node)
 	{
 		int id = rand() % node->validGridCount;
 		swap(node->validGrids[id], node->validGrids[node->validGridCount - 1]);
+	}
+	else
+	{
+		// try grids with lower priority after certain visits
+		if (node->gridLevel == 0 && node->visit > TRY_MORE_NODE_THRESHOLD)
+		{
+			if (node->game->UpdateValidGridsExtra())
+			{
+				node->gridLevel++;
+				node->validGrids = node->game->validGrids;
+				node->validGridCount = node->game->validGridCount;
+
+				int id = rand() % node->validGridCount;
+				swap(node->validGrids[id], node->validGrids[node->validGridCount - 1]);
+			}
+		}
 	}
 	return node->validGridCount > 0;
 }
@@ -172,10 +187,14 @@ float MCTS::DefaultPolicy(TreeNode *node, int id)
 {
 	gameCache[id] = *(node->game);
 
+	int step = 0;
 	while (gameCache[id].state == GameBase::E_NORMAL)
 	{
 		int move = gameCache[id].GetNextMove();
 		gameCache[id].PutChess(move);
+
+		if (++step > FAST_STOP_STEP)
+			return 0.5;
 	}
 	float value = (gameCache[id].state == root->game->GetSide()) ? 1.f : 0;
 
@@ -237,6 +256,7 @@ void MCTS::RecycleTreeNode(TreeNode *node)
 	node->winRate = 0;
 	node->expandFactor = 0;
 	node->validGridCount = 0;
+	node->gridLevel = 0;
 	node->children.clear();
 
 	pool.push_back(node);
