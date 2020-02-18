@@ -13,7 +13,6 @@ public:
 
 	int visit;
 	float value;
-	float score;
 	float winRate;
 	float expandFactor;
 	int validGridCount;
@@ -49,6 +48,7 @@ private:
 	float CalcScore(const TreeNode *node, float c, float logParentVisit);
 	float CalcScoreFast(const TreeNode *node, float expandFactorParent_c);
 	void PrintTree(TreeNode *node, int level = 0);
+	void PrintFullTree(TreeNode *node, int level = 0);
 
 	TreeNode* NewTreeNode(TreeNode *parent);
 	void RecycleTreeNode(TreeNode *node);

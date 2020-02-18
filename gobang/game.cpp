@@ -488,7 +488,7 @@ void Board::UpdateGridsInfo(int i0)
 {
 	int i1 = 1 - i0;
 
-	int bestScore = WIN_THRESHOLD - 1;
+	int bestScore = WIN_THRESHOLD;
 	keyGrid = 0xff;
 
 	greatGridNum = 0;
@@ -501,7 +501,7 @@ void Board::UpdateGridsInfo(int i0)
 		int score0 = scoreInfo[i0][i];
 		int score1 = scoreInfo[i1][i];
 
-		if (score0 + score1 / 2 > bestScore)
+		if (score0 + score1 / 2 >= bestScore)
 		{
 			bestScore = score0 + score1 / 2;
 			keyGrid = i;

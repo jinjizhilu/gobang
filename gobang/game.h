@@ -21,7 +21,7 @@ const int GREAT_SCORE = 60; // open 3
 const int GOOD_SCORE = 50; // jump 3
 const int OTHER_SCORE = 5; // half-open 3 or open 2 or jump 2
 
-const int WIN_THRESHOLD = 500;
+const int WIN_THRESHOLD = 1000;
 const int WINNING_ATTEMP_THRESHOLD = 100;
 const int COUNTER_WINNING_ATTEMP_THRESHOLD = 50;
 const int GOOD_THRESHOLD = 10;

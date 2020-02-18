@@ -6,10 +6,11 @@
 #include "mcts.h"
 
 const char* LOG_FILE = "MCTS.log";
+const char* LOG_FILE_FULL = "MCTS_FULL.log";
 const float Cp = 2.0f;
-const float SEARCH_TIME = 1.0f;
+const float SEARCH_TIME = 2.0f;
 const int	EXPAND_THRESHOLD = 3;
-const bool	ENABLE_MULTI_THREAD = false;
+const bool	ENABLE_MULTI_THREAD = true;
 const int	FAST_STOP_STEP = 30;
 const int	TRY_MORE_NODE_THRESHOLD = 1000;
 
@@ -17,7 +18,6 @@ TreeNode::TreeNode(TreeNode *p)
 {
 	visit = 0;
 	value = 0;
-	score = 0;
 	winRate = 0;
 	expandFactor = 0;
 	validGridCount = 0;
@@ -47,7 +47,8 @@ mutex mtx;
 void MCTS::SearchThread(int id, MCTS *mcts, clock_t startTime)
 {
 	float elapsedTime = 0;
-	while (elapsedTime <= SEARCH_TIME)
+
+	while (1)
 	{
 		mtx.lock();
 		TreeNode *node = mcts->TreePolicy(mcts->root);
@@ -60,6 +61,20 @@ void MCTS::SearchThread(int id, MCTS *mcts, clock_t startTime)
 		mtx.unlock();
 
 		elapsedTime = float(clock() - startTime) / 1000;
+		if (elapsedTime > SEARCH_TIME)
+		{
+			mtx.lock();
+			TreeNode *mostVisit = *max_element(mcts->root->children.begin(), mcts->root->children.end(), [](const TreeNode *a, const TreeNode *b)
+			{
+				return a->visit < b->visit;
+			});
+
+			TreeNode *bestScore = mcts->BestChild(mcts->root, 0);
+			mtx.unlock();
+
+			if (mostVisit == bestScore)
+				break;
+		}
 	}
 }
 
@@ -86,6 +101,7 @@ int MCTS::Search(Game *state)
 
 	maxDepth = 0;
 	PrintTree(root);
+	PrintFullTree(root);
 	printf("time: %.2f, iteration: %d, depth: %d, win: %d/%d\n", float(clock() - startTime) / 1000, root->visit, maxDepth, (int)best->value, best->visit);
 
 	ClearNodes(root);
@@ -154,10 +170,10 @@ TreeNode* MCTS::BestChild(TreeNode *node, float c)
 	TreeNode *result = NULL;
 	float bestScore = -1;
 	float expandFactorParent_c = sqrtf(logf(node->visit)) * c;
+
 	for (auto child : node->children)
 	{
 		float score = CalcScoreFast(child, expandFactorParent_c);
-		child->score = score;
 		if (score > bestScore)
 		{
 			bestScore = score;
@@ -169,7 +185,7 @@ TreeNode* MCTS::BestChild(TreeNode *node, float c)
 
 float MCTS::CalcScore(const TreeNode *node, float c, float logParentVisit)
 {
-	float winRate = (float)node->value / node->visit;
+	float winRate = node->value / node->visit;
 	float expandFactor = c * sqrtf(logParentVisit / node->visit);
 
 	if (node->game->GetSide() == root->game->GetSide()) // win rate of opponent
@@ -252,7 +268,6 @@ void MCTS::RecycleTreeNode(TreeNode *node)
 	node->parent = NULL;
 	node->visit = 0;
 	node->value = 0;
-	node->score = 0;
 	node->winRate = 0;
 	node->expandFactor = 0;
 	node->validGridCount = 0;
@@ -282,7 +297,7 @@ void MCTS::PrintTree(TreeNode *node, int level)
 	if (level > maxDepth)
 		maxDepth = level;
 
-	node->children.sort([this](const TreeNode *a, const TreeNode *b)
+	node->children.sort([](const TreeNode *a, const TreeNode *b)
 	{
 		return a->visit > b->visit;
 	});
@@ -297,7 +312,7 @@ void MCTS::PrintTree(TreeNode *node, int level)
 				fprintf(fp, "   ");
 
 			float expandFactorParent_c = sqrtf(logf(node->visit)) * Cp;
-			fprintf(fp, "visit: %d, value: %.0f, score: %.4f, children: %d, move: %s\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, expandFactorParent_c), (*it)->children.size(), Game::Id2Str((*it)->game->lastMove).c_str());
+			fprintf(fp, "visit: %d, value: %.1f, score: %.4f, children: %d, move: %s\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, expandFactorParent_c), (*it)->children.size(), Game::Id2Str((*it)->game->lastMove).c_str());
 			PrintTree(*it, level + 1);
 		}
 
@@ -308,6 +323,38 @@ void MCTS::PrintTree(TreeNode *node, int level)
 	if (level == 0)
 	{
 		fprintf(fp,"================================TreeEnd============================\n\n");
+		fclose(fp);
+	}
+}
+
+void MCTS::PrintFullTree(TreeNode *node, int level)
+{
+	if (level == 0)
+	{
+		fopen_s(&fp, LOG_FILE_FULL, "w");
+		fprintf(fp, "===============================PrintFullTree=============================\n");
+	}
+
+	node->children.sort([](const TreeNode *a, const TreeNode *b)
+	{
+		return a->visit > b->visit;
+	});
+
+	int i = 1;
+	for (auto it = node->children.begin(); it != node->children.end(); ++it)
+	{
+		fprintf(fp, "%d", level);
+		for (int j = 0; j < level; ++j)
+			fprintf(fp, "   ");
+
+		float expandFactorParent_c = sqrtf(logf(node->visit)) * Cp;
+		fprintf(fp, "visit: %d, value: %.1f, score: %.4f, children: %d, move: %s\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, expandFactorParent_c), (*it)->children.size(), Game::Id2Str((*it)->game->lastMove).c_str());
+		PrintFullTree(*it, level + 1);
+	}
+
+	if (level == 0)
+	{
+		fprintf(fp, "================================TreeEnd============================\n\n");
 		fclose(fp);
 	}
 }
