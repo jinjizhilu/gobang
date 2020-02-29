@@ -10,7 +10,7 @@ const char* LOG_FILE_FULL = "MCTS_FULL.log";
 const float Cp = 2.0f;
 const float SEARCH_TIME = 2.0f;
 const int	EXPAND_THRESHOLD = 3;
-const bool	ENABLE_MULTI_THREAD = true;
+const bool	ENABLE_MULTI_THREAD = false;
 const int	FAST_STOP_STEP = 30;
 const int	TRY_MORE_NODE_THRESHOLD = 1000;
 

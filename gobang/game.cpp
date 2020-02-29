@@ -15,12 +15,9 @@ Board::Board()
 
 void Board::Clear()
 {
-	for (int i = 0; i < GRID_NUM; ++i)
-	{
-		grids[i] = E_EMPTY;
-		scoreInfo[0][i] = 0;
-		scoreInfo[1][i] = 0;
-	}
+	grids.fill(E_EMPTY);
+	scoreInfo[0].fill(0);
+	scoreInfo[1].fill(0);
 }
 
 void Board::Print(int lastChess)
@@ -325,14 +322,14 @@ short Board::CalcLineScore(array<char, 9> line)
 			}
 			else // half-open 4
 			{
-				score1 = CHECKMATE_SCORE;
+				score1 = WINNING_SCORE;
 			}
 		}
 		else if (total1 == WIN_COUNT - 2)
 		{
 			if (isOpen1 && isOpen2 && isTotalOpen) // open 3
 			{
-				score1 = GREAT_SCORE;
+				score1 = GOOD_SCORE;
 			}
 			else // half-open 3
 			{
@@ -352,11 +349,11 @@ short Board::CalcLineScore(array<char, 9> line)
 		{
 			if (total3 >= WIN_COUNT && total4 >= WIN_COUNT) // 2 jump 4
 			{
-				score2 = CHECKMATE_SCORE * 2;
+				score2 = WINNING_SCORE * 2;
 			}
 			else // jump 4
 			{
-				score2 = CHECKMATE_SCORE;
+				score2 = WINNING_SCORE;
 			}
 		}
 		else if (total5 == WIN_COUNT - 1)
@@ -488,39 +485,78 @@ void Board::UpdateGridsInfo(int i0)
 {
 	int i1 = 1 - i0;
 
-	int bestScore = WIN_THRESHOLD;
+	int bestScore = 0;
 	keyGrid = 0xff;
 
-	greatGridNum = 0;
-	goodGridNum = 0;
-	poorGridNum = 0;
-	otherGridNum = 0;
+	gridCheckStatus.fill(E_PRIORITY_MAX);
+	hasPriority.fill(false);
 
 	for (int i = 0; i < GRID_NUM; ++i)
 	{
 		int score0 = scoreInfo[i0][i];
 		int score1 = scoreInfo[i1][i];
 
-		if (score0 + score1 / 2 >= bestScore)
+		if (score0 >= WIN_THRESHOLD)
 		{
-			bestScore = score0 + score1 / 2;
 			keyGrid = i;
+			gridCheckStatus[i] = E_WINNING;
+			hasPriority[E_WINNING] = true;
+			return;
 		}
-		else if (score0 >= WINNING_ATTEMP_THRESHOLD || score1 >= COUNTER_WINNING_ATTEMP_THRESHOLD)
+		else if (score1 >= WIN_THRESHOLD)
 		{
-			goodGrids[greatGridNum++] = i;
+			keyGrid = i;
+			bestScore = score1;
+			gridCheckStatus[i] = E_WINNING;
+			hasPriority[E_WINNING] = true;
+		}
+		else if (score0 >= WINNING_THRESHOLD)
+		{
+			if (score0 > bestScore)
+			{
+				keyGrid = i;
+				bestScore = score0;
+				gridCheckStatus[i] = E_WINNING;
+				hasPriority[E_WINNING] = true;
+			}
+		}
+		else if (score1 >= WINNING_ATTEMP_THRESHOLD)
+		{
+			// to do
+			gridCheckStatus[i] = E_GREAT;
+			hasPriority[E_GREAT] = true;
+		}
+		else if (score0 >= WINNING_ATTEMP_THRESHOLD)
+		{
+			gridCheckStatus[i] = E_GREAT;
+			hasPriority[E_GREAT] = true;
 		}
 		else if (score0 >= GOOD_THRESHOLD || score1 >= GOOD_THRESHOLD)
 		{
-			goodGrids[GRID_NUM - ++goodGridNum] = i;
+			gridCheckStatus[i] = E_GOOD;
+			hasPriority[E_GOOD] = true;
 		}
 		else if (score0 > 0 || score1 > 0)
 		{
-			otherGrids[poorGridNum++] = i;
+			gridCheckStatus[i] = E_POOR;
+			hasPriority[E_POOR] = true;
 		}
 		else
 		{
-			otherGrids[GRID_NUM - ++otherGridNum] = i;
+			gridCheckStatus[i] = E_OTHER;
+			hasPriority[E_OTHER] = true;
+		}
+	}
+}
+
+void Board::GetGridsByPriority(ChessPriority priority, array<uint8_t, GRID_NUM> &result, int &count)
+{
+	count = 0;
+	for (int i = 0; i < GRID_NUM; ++i)
+	{
+		if (gridCheckStatus[i] == priority)
+		{
+			result[count++] = i;
 		}
 	}
 }
@@ -623,50 +659,24 @@ void GameBase::UpdateValidGrids()
 	{
 		validGrids[0] = board.keyGrid;
 		validGridCount = 1;
+		return;
 	}
-	else if (board.greatGridNum > 0)
+	
+	for (int i = Board::E_GREAT; i < Board::E_PRIORITY_MAX; ++i)
 	{
-		for (int i = 0; i < board.greatGridNum; ++i)
+		if (board.hasPriority[i])
 		{
-			validGrids[i] = board.goodGrids[i];
+			board.GetGridsByPriority((Board::ChessPriority)i, validGrids, validGridCount);
+			break;
 		}
-		validGridCount = board.greatGridNum;
-	}
-	else if (board.goodGridNum > 0)
-	{
-		for (int i = 0; i < board.goodGridNum; ++i)
-		{
-			validGrids[i] = board.goodGrids[GRID_NUM - i - 1];
-		}
-		validGridCount = board.goodGridNum;
-	}
-	else if (board.poorGridNum > 0)
-	{
-		for (int i = 0; i < board.poorGridNum; ++i)
-		{
-			validGrids[i] = board.otherGrids[i];
-		}
-		validGridCount = board.poorGridNum;
-	}
-	else
-	{
-		for (int i = 0; i < board.otherGridNum; ++i)
-		{
-			validGrids[i] = board.otherGrids[GRID_NUM - i - 1];
-		}
-		validGridCount = board.otherGridNum;
 	}
 }
 
 bool GameBase::UpdateValidGridsExtra()
 {
-	if (board.keyGrid == 0xff && board.greatGridNum > 0 && board.goodGridNum > 0)
+	if (board.keyGrid == 0xff && board.hasPriority[Board::E_GREAT] && board.hasPriority[Board::E_GOOD])
 	{
-		for (int i = 0; i < board.goodGridNum; ++i)
-		{
-			validGrids[i] = board.goodGrids[GRID_NUM - i - 1];
-		}
-		validGridCount = board.goodGridNum;
+		board.GetGridsByPriority(Board::E_GOOD, validGrids, validGridCount);
 		return true;
 	}
 	return false;
