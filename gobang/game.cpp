@@ -3,7 +3,8 @@
 #include <cassert>
 
 #define max(a, b) ((a > b) ? a : b)
-#define PRINT_SCORE 0
+#define PRINT_SCORE 1
+#define PRINT_PRIORITY 1
 
 Board::Board()
 {
@@ -96,6 +97,52 @@ void Board::PrintScore(int side)
 	}
 }
 
+void Board::PrintPriority()
+{
+	cout << " ";
+	for (int i = 1; i <= BOARD_SIZE; ++i)
+	{
+		if (i < 10)
+			printf("%2d", i);
+		else
+			printf(" %c", 'a' + i - 10);
+	}
+	cout << endl;
+
+	for (int i = 0; i < BOARD_SIZE; ++i)
+	{
+		printf("%c ", 'A' + i);
+
+		for (int j = 0; j < BOARD_SIZE; ++j)
+		{
+			int id = Board::Coord2Id(i, j);
+			int grid = grids[id];
+
+			if (grid == E_EMPTY)
+			{
+				int priority = gridCheckStatus[id];
+				if (priority < E_OTHER)
+				{
+					printf("%d ", priority + 1);
+				}
+				else
+				{
+					printf("  ");
+				}
+			}
+			if (grid == E_BLACK)
+			{
+				cout << "@ ";
+			}
+			if (grid == E_WHITE)
+			{
+				cout << "O ";
+			}
+		}
+		cout << endl;
+	}
+}
+
 char Board::GetGrid(int row, int col)
 {
 	if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE)
@@ -157,11 +204,16 @@ array<int, LINE_ID_MAX> Board::lineScoreDict;
 
 void Board::InitLineScoreDict()
 {
+	FILE *fp;
+	fopen_s(&fp, "line_dict.log", "w");
+	char strmap[4] = { ' ', '@', 'O', 'X' };
+
 	int maxId = pow(4, 9);
 
 	for (int i = 0; i < maxId; ++i)
 	{
 		array<char, 9> line;
+		char lineStr[12];
 		bool isValid = true;
 
 		int key = i;
@@ -169,13 +221,16 @@ void Board::InitLineScoreDict()
 		{
 			line[j] = key % 4;
 			key = key >> 2;
+			lineStr[j + 1] = strmap[line[j]];
 
-			if (j == 4 && (line[j] == E_INVALID && line[j] == E_EMPTY))
+			if (j == 4 && (line[j] == E_INVALID || line[j] == E_EMPTY))
 			{
 				isValid = false;
 				break;
 			}
 		}
+		lineStr[0] = lineStr[10] = '|';
+		lineStr[11] = 0;
 
 		int leftCount = 0;
 		for (int j = 0; j < 4; ++j)
@@ -207,8 +262,14 @@ void Board::InitLineScoreDict()
 		{
 			short score = CalcLineScore(line);
 			lineScoreDict[i] = score;
+
+			if (score > 0)
+			{
+				fprintf(fp, "%8d, %5d,   %s\n", i, score, lineStr);
+			}
 		}
 	}
+	fclose(fp);
 
 	isLineScoreDictReady = true;
 }
@@ -481,6 +542,92 @@ void Board::UpdateScore(int row, int col, int rowX, int colX, ChessDirection dir
 	scoreInfo[i0][Board::Coord2Id(row, col)] += lineScore - lineScore0;
 }
 
+void Board::FindOtherGrids(int i0, int id)
+{
+	int otherSide = (i0 == 0) ? E_WHITE : E_BLACK;
+
+	int row, col;
+	Board::Id2Coord(id, row, col);
+
+	for (int d = 0; d < 4; ++d)
+	{
+		int dx, dy;
+		Board::Direction2DxDy((Board::ChessDirection)d, dx, dy);
+
+		// calc origin key & line score
+		int key = 0;
+		int row1 = row, col1 = col;
+		for (int i = 0; i < 4; ++i)
+		{
+			row1 -= dy; col1 -= dx;
+
+			int value = GetGrid(row1, col1) << ((3 - i) * 2);
+			key += value;
+		}
+
+		row1 = row, col1 = col;
+		for (int i = 0; i < 4; ++i)
+		{
+			row1 += dy; col1 += dx;
+
+			int value = GetGrid(row1, col1) << ((5 + i) * 2);
+			key += value;
+		}
+		int lineScore = lineScoreDict[key];
+
+		// check valid grids
+		row1 = row, col1 = col;
+		for (int i = 0; i < 4; ++i)
+		{
+			row1 -= dy; col1 -= dx;
+
+			int chess = GetGrid(row1, col1);
+
+			if (chess == E_INVALID || chess == otherSide)
+				break;
+
+			if (chess == E_EMPTY)
+			{
+				int value = otherSide << ((3 - i) * 2);
+				int key1 = key + value;
+				int lineScore1 = lineScoreDict[key1];
+				int newScore = scoreInfo[i0][id] + lineScore1 - lineScore;
+
+				if (newScore < WINNING_ATTEMP_THRESHOLD)
+				{
+					int id1 = Board::Coord2Id(row1, col1);
+					gridCheckStatus[id1] = E_GREAT;
+				}
+			}
+		}
+
+		row1 = row, col1 = col;
+		for (int i = 0; i < 4; ++i)
+		{
+			row1 += dy; col1 += dx;
+
+			int chess = GetGrid(row1, col1);
+
+			if (chess == E_INVALID || chess == otherSide)
+				break;
+
+			if (chess == E_EMPTY)
+			{
+				int value = otherSide << ((5 + i) * 2);
+				int key1 = key + value;
+				int lineScore1 = lineScoreDict[key1];
+				int newScore = scoreInfo[i0][id] + lineScore1 - lineScore;
+
+				if (newScore < WINNING_ATTEMP_THRESHOLD)
+				{
+					int id1 = Board::Coord2Id(row1, col1);
+					gridCheckStatus[id1] = E_GREAT;
+				}
+			}
+		}
+	}
+}
+
 void Board::UpdateGridsInfo(int i0)
 {
 	int i1 = 1 - i0;
@@ -522,9 +669,10 @@ void Board::UpdateGridsInfo(int i0)
 		}
 		else if (score1 >= WINNING_ATTEMP_THRESHOLD)
 		{
-			// to do
 			gridCheckStatus[i] = E_GREAT;
 			hasPriority[E_GREAT] = true;
+
+			FindOtherGrids(i1, i); // find other possible counter moves
 		}
 		else if (score0 >= WINNING_ATTEMP_THRESHOLD)
 		{
@@ -533,18 +681,27 @@ void Board::UpdateGridsInfo(int i0)
 		}
 		else if (score0 >= GOOD_THRESHOLD || score1 >= GOOD_THRESHOLD)
 		{
-			gridCheckStatus[i] = E_GOOD;
-			hasPriority[E_GOOD] = true;
+			if (gridCheckStatus[i] > E_GOOD) // may be E_GREAT by FindOtherGrids
+			{
+				gridCheckStatus[i] = E_GOOD;
+				hasPriority[E_GOOD] = true;
+			}
 		}
 		else if (score0 > 0 || score1 > 0)
 		{
-			gridCheckStatus[i] = E_POOR;
-			hasPriority[E_POOR] = true;
+			if (gridCheckStatus[i] > E_POOR) // may be E_GREAT by FindOtherGrids
+			{
+				gridCheckStatus[i] = E_POOR;
+				hasPriority[E_POOR] = true;
+			}
 		}
 		else
 		{
-			gridCheckStatus[i] = E_OTHER;
-			hasPriority[E_OTHER] = true;
+			if (gridCheckStatus[i] > E_OTHER) // may be E_GREAT by FindOtherGrids
+			{
+				gridCheckStatus[i] = E_OTHER;
+				hasPriority[E_OTHER] = true;
+			}
 		}
 	}
 }
@@ -755,6 +912,12 @@ void Game::Print()
 	{
 		board.PrintScore(3 - GetSide());
 		board.PrintScore(GetSide());
+		cout << endl;
+	}
+
+	if (PRINT_PRIORITY)
+	{
+		board.PrintPriority();
 		cout << endl;
 	}
 }
