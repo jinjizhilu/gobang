@@ -3,7 +3,7 @@
 #include <cassert>
 
 #define max(a, b) ((a > b) ? a : b)
-#define PRINT_SCORE 1
+#define PRINT_SCORE 0
 #define PRINT_PRIORITY 1
 
 Board::Board()
@@ -19,6 +19,7 @@ void Board::Clear()
 	grids.fill(E_EMPTY);
 	scoreInfo[0].fill(0);
 	scoreInfo[1].fill(0);
+	gridCheckStatus.fill(E_PRIORITY_MAX);
 }
 
 void Board::Print(int lastChess)
@@ -136,7 +137,7 @@ void Board::PrintPriority()
 			}
 			if (grid == E_WHITE)
 			{
-				cout << "O ";
+				cout << "X ";
 			}
 		}
 		cout << endl;
@@ -299,36 +300,58 @@ short Board::CalcLineScore(array<char, 9> line)
 	}
 
 	// continuous grid with 1 empty
+	bool isValid = false;
+	bool foundEmpty = false;
 	int num3 = 0;
-	int emptyCount = 0;
 	for (int i = 3; i >= 0; --i)
 	{
 		if (line[i] == otherSide || line[i] == E_INVALID)
 			break;
 
-		if (line[i] == E_EMPTY && ++emptyCount > 1)
-			break;
+		if (!foundEmpty)
+		{
+			if (line[i] == E_EMPTY)
+				foundEmpty = true;
+		}
+		else
+		{
+			if (line[i] == E_EMPTY)
+				break;
+
+			if (line[i] == side)
+				isValid = true;
+		}
 
 		++num3;
 	}
-
-	if (num3 == emptyCount || emptyCount == 0) // all empty or no empty
+	if (!isValid)
 		num3 = 0;
 
+	isValid = false;
+	foundEmpty = false;
 	int num4 = 0;
-	emptyCount = 0;
 	for (int i = 5; i <= 8; ++i)
 	{
 		if (line[i] == otherSide || line[i] == E_INVALID)
 			break;
 
-		if (line[i] == E_EMPTY && ++emptyCount > 1)
-			break;
+		if (!foundEmpty)
+		{
+			if (line[i] == E_EMPTY)
+				foundEmpty = true;
+		}
+		else
+		{
+			if (line[i] == E_EMPTY)
+				break;
+
+			if (line[i] == side)
+				isValid = true;
+		}
 
 		++num4;
 	}
-
-	if (num4 == emptyCount || emptyCount == 0) // all empty or no empty
+	if (!isValid)
 		num4 = 0;
 
 
@@ -336,7 +359,7 @@ short Board::CalcLineScore(array<char, 9> line)
 	int max1 = 0;
 	for (int i = 3; i >= 0; --i)
 	{
-		if (line[i] == otherSide)
+		if (line[i] == otherSide || line[i] == E_INVALID)
 			break;
 
 		++max1;
@@ -345,7 +368,7 @@ short Board::CalcLineScore(array<char, 9> line)
 	int max2 = 0;
 	for (int i = 5; i <= 8; ++i)
 	{
-		if (line[i] == otherSide)
+		if (line[i] == otherSide || line[i] == E_INVALID)
 			break;
 
 		++max2;
@@ -383,7 +406,7 @@ short Board::CalcLineScore(array<char, 9> line)
 			}
 			else // half-open 4
 			{
-				score1 = WINNING_SCORE;
+				score1 = GOOD_SCORE;
 			}
 		}
 		else if (total1 == WIN_COUNT - 2)
@@ -410,11 +433,11 @@ short Board::CalcLineScore(array<char, 9> line)
 		{
 			if (total3 >= WIN_COUNT && total4 >= WIN_COUNT) // 2 jump 4
 			{
-				score2 = WINNING_SCORE * 2;
+				score2 = WINNING_SCORE;
 			}
 			else // jump 4
 			{
-				score2 = WINNING_SCORE;
+				score2 = GOOD_SCORE;
 			}
 		}
 		else if (total5 == WIN_COUNT - 1)
@@ -503,7 +526,8 @@ void Board::UpdatScoreInfo(int id)
 
 void Board::UpdateScore(int row, int col, int rowX, int colX, ChessDirection direction, int side)
 {
-	int key = 0, key0 = 0;
+	int key = side << (4 * 2);
+	int key0 = key;
 
 	int dx, dy;
 	Board::Direction2DxDy(direction, dx, dy);
@@ -532,9 +556,6 @@ void Board::UpdateScore(int row, int col, int rowX, int colX, ChessDirection dir
 			key0 += value;
 	}
 
-	key0 += (side << (4 * 2));
-	key += (side << (4 * 2));
-
 	int lineScore0 = lineScoreDict[key0];
 	int lineScore = lineScoreDict[key];
 
@@ -544,7 +565,8 @@ void Board::UpdateScore(int row, int col, int rowX, int colX, ChessDirection dir
 
 void Board::FindOtherGrids(int i0, int id)
 {
-	int otherSide = (i0 == 0) ? E_WHITE : E_BLACK;
+	int side = (i0 == 0) ? E_BLACK : E_WHITE;
+	int otherSide = 3 - side;
 
 	int row, col;
 	Board::Id2Coord(id, row, col);
@@ -555,7 +577,7 @@ void Board::FindOtherGrids(int i0, int id)
 		Board::Direction2DxDy((Board::ChessDirection)d, dx, dy);
 
 		// calc origin key & line score
-		int key = 0;
+		int key = side << ( 4 * 2);
 		int row1 = row, col1 = col;
 		for (int i = 0; i < 4; ++i)
 		{
@@ -831,9 +853,10 @@ void GameBase::UpdateValidGrids()
 
 bool GameBase::UpdateValidGridsExtra()
 {
-	if (board.keyGrid == 0xff && board.hasPriority[Board::E_GREAT] && board.hasPriority[Board::E_GOOD])
+	if (board.keyGrid == 0xff && !board.hasPriority[Board::E_GREAT] && 
+		board.hasPriority[Board::E_GOOD] && board.hasPriority[Board::E_POOR])
 	{
-		board.GetGridsByPriority(Board::E_GOOD, validGrids, validGridCount);
+		board.GetGridsByPriority(Board::E_POOR, validGrids, validGridCount);
 		return true;
 	}
 	return false;
