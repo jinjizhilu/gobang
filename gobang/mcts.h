@@ -32,7 +32,7 @@ public:
 	int Search(Game *state);
 
 private:
-	static void SearchThread(int id, MCTS *mcts, clock_t startTime);
+	static void SearchThread(int id, int seed, MCTS *mcts, clock_t startTime);
 
 	// standard MCTS process
 	TreeNode* TreePolicy(TreeNode *node);
@@ -43,6 +43,8 @@ private:
 
 	// custom optimization
 	bool PreExpandTree(TreeNode *node);
+
+	int CheckOpeningBook(GameBase *state);
 
 	void ClearNodes(TreeNode *node);
 	float CalcScore(const TreeNode *node, float c, float logParentVisit);

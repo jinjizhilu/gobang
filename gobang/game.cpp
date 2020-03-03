@@ -4,7 +4,7 @@
 
 #define max(a, b) ((a > b) ? a : b)
 #define PRINT_SCORE 0
-#define PRINT_PRIORITY 1
+#define PRINT_PRIORITY 0
 
 Board::Board()
 {
@@ -650,6 +650,7 @@ void Board::FindOtherGrids(int i0, int id)
 	}
 }
 
+__declspec(noinline)
 void Board::UpdateGridsInfo(int i0)
 {
 	int i1 = 1 - i0;

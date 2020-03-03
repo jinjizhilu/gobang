@@ -11,7 +11,8 @@ const float Cp = 2.0f;
 const float SEARCH_TIME = 2.0f;
 const int	EXPAND_THRESHOLD = 3;
 const bool	ENABLE_MULTI_THREAD = false;
-const int	FAST_STOP_STEP = 30;
+const float	FAST_STOP_THRESHOLD = 0.1f;
+const float	FAST_STOP_BRANCH_FACTOR = 0.005f;
 const int	TRY_MORE_NODE_THRESHOLD = 1000;
 
 TreeNode::TreeNode(TreeNode *p)
@@ -44,8 +45,9 @@ MCTS::~MCTS()
 
 mutex mtx;
 
-void MCTS::SearchThread(int id, MCTS *mcts, clock_t startTime)
+void MCTS::SearchThread(int id, int seed, MCTS *mcts, clock_t startTime)
 {
+	srand(seed); // need to call srand for each thread
 	float elapsedTime = 0;
 
 	while (1)
@@ -80,6 +82,10 @@ void MCTS::SearchThread(int id, MCTS *mcts, clock_t startTime)
 
 int MCTS::Search(Game *state)
 {
+	int move = CheckOpeningBook((GameBase*)state);
+	if (move != -1)
+		return move;
+
 	root = NewTreeNode(NULL);
 	*(root->game) = *((GameBase*)state);
 	root->validGridCount = root->game->validGridCount;
@@ -91,13 +97,13 @@ int MCTS::Search(Game *state)
 	int thread_num = ENABLE_MULTI_THREAD ? thread::hardware_concurrency() : 1;
 
 	for (int i = 0; i < thread_num; ++i)
-		threads[i] = thread(SearchThread, i, this, startTime);
+		threads[i] = thread(SearchThread, i, rand(), this, startTime);
 
 	for (int i = 0; i < thread_num; ++i)
 		threads[i].join();
 	
 	TreeNode *best = BestChild(root, 0);
-	int move = best->game->lastMove;
+	move = best->game->lastMove;
 
 	maxDepth = 0;
 	PrintTree(root);
@@ -203,16 +209,22 @@ float MCTS::DefaultPolicy(TreeNode *node, int id)
 {
 	gameCache[id] = *(node->game);
 
-	int step = 0;
+	float weight = 1.0f;
 	while (gameCache[id].state == GameBase::E_NORMAL)
 	{
+		weight *= (1 - FAST_STOP_BRANCH_FACTOR * gameCache[id].validGridCount);
+
 		int move = gameCache[id].GetNextMove();
 		gameCache[id].PutChess(move);
 
-		if (++step > FAST_STOP_STEP)
+		if (weight < FAST_STOP_THRESHOLD)
+		{
+			//cout << (gameCache[id].turn - node->game->turn) << endl;
 			return 0.5;
+		}
 	}
 	float value = (gameCache[id].state == root->game->GetSide()) ? 1.f : 0;
+	value = (value - 0.5f) * weight + 0.5f;
 
 	return value;
 }
@@ -357,4 +369,21 @@ void MCTS::PrintFullTree(TreeNode *node, int level)
 		fprintf(fp, "================================TreeEnd============================\n\n");
 		fclose(fp);
 	}
+}
+
+int MCTS::CheckOpeningBook(GameBase *state)
+{
+	int centerId = Game::Str2Id("H8");
+
+	if (state->turn == 1)
+		return centerId;
+
+	if (state->turn == 2 && state->lastMove == centerId)
+	{
+		int neighbourId[8] = { Game::Str2Id("G7"), Game::Str2Id("G8"), Game::Str2Id("G9"), Game::Str2Id("H7"),
+			Game::Str2Id("H9"), Game::Str2Id("I7"), Game::Str2Id("I8"), Game::Str2Id("I9") };
+		return neighbourId[rand() % 8];
+	}
+
+	return -1;
 }
