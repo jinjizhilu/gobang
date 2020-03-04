@@ -65,13 +65,11 @@ public:
 	void Print(int lastChess);
 	void PrintScore(int side);
 	void PrintPriority();
+
 	int GetChessNumInLine(int id, ChessDirection direction);
 	void GetGridsByPriority(ChessPriority priority, array<uint8_t, GRID_NUM> &result, int &count);
 
 	void UpdatScoreInfo(int id);
-	void UpdateScore(int row, int col, int rowX, int colX, ChessDirection direction, int side);
-	void UpdateGridsInfo(int i0);
-	void FindOtherGrids(int i0, int id);
 
 	static int Coord2Id(int row, int col);
 	static void Id2Coord(int id, int &row, int &col);
@@ -87,6 +85,10 @@ public:
 private:
 	char GetGrid(int row, int col);
 	bool SetGrid(int row, int col, char value);
+
+	void UpdateScore(int row, int col, int rowX, int colX, ChessDirection direction, int side);
+	void UpdateGridsInfo(int i0);
+	void FindOtherGrids(int i0, int id);
 
 	static void InitLineScoreDict();
 	static short CalcLineScore(array<char, 9> line);

@@ -10,7 +10,7 @@ const char* LOG_FILE_FULL = "MCTS_FULL.log";
 const float Cp = 2.0f;
 const float SEARCH_TIME = 2.0f;
 const int	EXPAND_THRESHOLD = 3;
-const bool	ENABLE_MULTI_THREAD = false;
+const bool	ENABLE_MULTI_THREAD = true;
 const float	FAST_STOP_THRESHOLD = 0.1f;
 const float	FAST_STOP_BRANCH_FACTOR = 0.005f;
 const int	TRY_MORE_NODE_THRESHOLD = 1000;
@@ -300,10 +300,17 @@ void MCTS::ClearPool()
 
 void MCTS::PrintTree(TreeNode *node, int level)
 {
-	if (level == 0)
+	if (level == 1)
 	{
+		freopen_s(&fp, LOG_FILE, "a+", stdout);
+		node->game->board.Print(node->game->lastMove);
+		node->game->board.PrintPriority();
+		fclose(stdout);
+		freopen_s(&fp, "CON", "w", stdout);
+
 		fopen_s(&fp, LOG_FILE, "a+");
 		fprintf(fp, "===============================PrintTree=============================\n");
+		fprintf(fp, "visit: %d, value: %.1f, children: %d\n", node->visit, node->value, node->children.size());
 	}
 	
 	if (level > maxDepth)
@@ -317,22 +324,19 @@ void MCTS::PrintTree(TreeNode *node, int level)
 	int i = 1;
 	for (auto it = node->children.begin(); it != node->children.end(); ++it)
 	{
-		if ((float)(*it)->visit / root->visit > 0.000)
-		{
-			fprintf(fp, "%d", level);
-			for (int j = 0; j < level; ++j)
-				fprintf(fp, "   ");
+		fprintf(fp, "%d", level);
+		for (int j = 0; j < level; ++j)
+			fprintf(fp, "   ");
 
-			float expandFactorParent_c = sqrtf(logf(node->visit)) * Cp;
-			fprintf(fp, "visit: %d, value: %.1f, score: %.4f, children: %d, move: %s\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, expandFactorParent_c), (*it)->children.size(), Game::Id2Str((*it)->game->lastMove).c_str());
-			PrintTree(*it, level + 1);
-		}
+		float expandFactorParent_c = sqrtf(logf(node->visit)) * Cp;
+		fprintf(fp, "visit: %d, value: %.1f, score: %.4f, children: %d, move: %s\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, expandFactorParent_c), (*it)->children.size(), Game::Id2Str((*it)->game->lastMove).c_str());
+		PrintTree(*it, level + 1);
 
 		if (++i > 3)
 			break;
 	}
 
-	if (level == 0)
+	if (level == 1)
 	{
 		fprintf(fp,"================================TreeEnd============================\n\n");
 		fclose(fp);
@@ -341,10 +345,11 @@ void MCTS::PrintTree(TreeNode *node, int level)
 
 void MCTS::PrintFullTree(TreeNode *node, int level)
 {
-	if (level == 0)
+	if (level == 1)
 	{
 		fopen_s(&fp, LOG_FILE_FULL, "w");
 		fprintf(fp, "===============================PrintFullTree=============================\n");
+		fprintf(fp, "visit: %d, value: %.1f, children: %d\n", node->visit, node->value, node->children.size());
 	}
 
 	node->children.sort([](const TreeNode *a, const TreeNode *b)
@@ -364,7 +369,7 @@ void MCTS::PrintFullTree(TreeNode *node, int level)
 		PrintFullTree(*it, level + 1);
 	}
 
-	if (level == 0)
+	if (level == 1)
 	{
 		fprintf(fp, "================================TreeEnd============================\n\n");
 		fclose(fp);

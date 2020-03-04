@@ -5,6 +5,7 @@
 #define max(a, b) ((a > b) ? a : b)
 #define PRINT_SCORE 0
 #define PRINT_PRIORITY 0
+#define OUTPUT_LINE_SCORE_DICT 0
 
 Board::Board()
 {
@@ -64,6 +65,7 @@ void Board::Print(int lastChess)
 		}
 		cout << endl;
 	}
+	cout << endl;
 }
 
 void Board::PrintScore(int side)
@@ -142,6 +144,7 @@ void Board::PrintPriority()
 		}
 		cout << endl;
 	}
+	cout << endl;
 }
 
 char Board::GetGrid(int row, int col)
@@ -206,8 +209,10 @@ array<int, LINE_ID_MAX> Board::lineScoreDict;
 void Board::InitLineScoreDict()
 {
 	FILE *fp;
-	fopen_s(&fp, "line_dict.log", "w");
 	char strmap[4] = { ' ', '@', 'O', 'X' };
+
+	if (OUTPUT_LINE_SCORE_DICT)
+		fopen_s(&fp, "line_dict.log", "w");
 
 	int maxId = pow(4, 9);
 
@@ -264,13 +269,15 @@ void Board::InitLineScoreDict()
 			short score = CalcLineScore(line);
 			lineScoreDict[i] = score;
 
-			if (score > 0)
+			if (OUTPUT_LINE_SCORE_DICT && score > 0)
 			{
 				fprintf(fp, "%8d, %5d,   %s\n", i, score, lineStr);
 			}
 		}
 	}
-	fclose(fp);
+
+	if (OUTPUT_LINE_SCORE_DICT)
+		fclose(fp);
 
 	isLineScoreDictReady = true;
 }
@@ -854,11 +861,19 @@ void GameBase::UpdateValidGrids()
 
 bool GameBase::UpdateValidGridsExtra()
 {
-	if (board.keyGrid == 0xff && !board.hasPriority[Board::E_GREAT] && 
-		board.hasPriority[Board::E_GOOD] && board.hasPriority[Board::E_POOR])
+	if (board.keyGrid == 0xff)
 	{
-		board.GetGridsByPriority(Board::E_POOR, validGrids, validGridCount);
-		return true;
+		if (board.hasPriority[Board::E_GREAT] && board.hasPriority[Board::E_GOOD])
+		{
+			board.GetGridsByPriority(Board::E_GOOD, validGrids, validGridCount);
+			return true;
+		}
+
+		if (!board.hasPriority[Board::E_GREAT] && board.hasPriority[Board::E_GOOD] && board.hasPriority[Board::E_POOR])
+		{
+			board.GetGridsByPriority(Board::E_POOR, validGrids, validGridCount);
+			return true;
+		}
 	}
 	return false;
 }
@@ -930,7 +945,6 @@ void Game::Print()
 
 	printf("=== Current State: %s ===\n", stateText[state].c_str());
 	board.Print(lastMove);
-	cout << endl;
 
 	if (PRINT_SCORE)
 	{
