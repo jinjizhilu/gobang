@@ -3,6 +3,7 @@
 #include <cassert>
 
 #define max(a, b) ((a > b) ? a : b)
+#define min(a, b) ((a < b) ? a : b)
 #define PRINT_SCORE 0
 #define PRINT_PRIORITY 0
 #define OUTPUT_LINE_SCORE_DICT 0
@@ -52,7 +53,7 @@ void Board::Print(int lastChess)
 
 			if (grid == E_EMPTY)
 			{
-				cout << "+ ";
+				cout << "- ";
 			}
 			if (grid == E_BLACK)
 			{
@@ -403,24 +404,24 @@ short Board::CalcLineScore(array<char, 9> line)
 		// continuous situations
 		if (total1 >= WIN_COUNT) // continuous 5
 		{
-			score1 = WIN_SCORE;
+			score1 = FIVE_SCORE;
 		}
 		else if (total1 == WIN_COUNT - 1)
 		{
 			if (isOpen1 && isOpen2 && isTotalOpen) // open 4
 			{
-				score1 = WINNING_SCORE;
+				score1 = OPEN_FOUR_SCORE;
 			}
 			else // half-open 4
 			{
-				score1 = GOOD_SCORE;
+				score1 = CLOSE_FOUR_SCORE;
 			}
 		}
 		else if (total1 == WIN_COUNT - 2)
 		{
 			if (isOpen1 && isOpen2 && isTotalOpen) // open 3
 			{
-				score1 = GOOD_SCORE;
+				score1 = OPEN_THREE_SCORE;
 			}
 			else // half-open 3
 			{
@@ -440,22 +441,22 @@ short Board::CalcLineScore(array<char, 9> line)
 		{
 			if (total3 >= WIN_COUNT && total4 >= WIN_COUNT) // 2 jump 4
 			{
-				score2 = WINNING_SCORE;
+				score2 = OPEN_FOUR_SCORE;
 			}
 			else // jump 4
 			{
-				score2 = GOOD_SCORE;
+				score2 = CLOSE_FOUR_SCORE;
 			}
 		}
 		else if (total5 == WIN_COUNT - 1)
 		{
 			if (total3 >= WIN_COUNT - 2 && isOpen1 && isOpen4 && isTotalOpen)
 			{
-				score2 = GOOD_SCORE; // jump 3
+				score2 = OPEN_THREE_SCORE; // jump 3
 			}
 			else if (total4 >= WIN_COUNT - 2 && isOpen2 && isOpen3 && isTotalOpen)
 			{
-				score2 = GOOD_SCORE; // jump 3
+				score2 = OPEN_THREE_SCORE; // jump 3
 			}
 			else
 			{
@@ -570,7 +571,7 @@ void Board::UpdateScore(int row, int col, int rowX, int colX, ChessDirection dir
 	scoreInfo[i0][Board::Coord2Id(row, col)] += lineScore - lineScore0;
 }
 
-void Board::FindOtherGrids(int i0, int id)
+void Board::FindOtherGrids(int i0, int id, GridType type)
 {
 	int side = (i0 == 0) ? E_BLACK : E_WHITE;
 	int otherSide = 3 - side;
@@ -622,10 +623,10 @@ void Board::FindOtherGrids(int i0, int id)
 				int lineScore1 = lineScoreDict[key1];
 				int newScore = scoreInfo[i0][id] + lineScore1 - lineScore;
 
-				if (newScore < WINNING_ATTEMP_THRESHOLD)
+				if (newScore < THREE_THREE_SCORE)
 				{
 					int id1 = Board::Coord2Id(row1, col1);
-					gridCheckStatus[id1] = E_GREAT;
+					gridCheckStatus[id1] = min(gridCheckStatus[id1], type);
 				}
 			}
 		}
@@ -647,10 +648,10 @@ void Board::FindOtherGrids(int i0, int id)
 				int lineScore1 = lineScoreDict[key1];
 				int newScore = scoreInfo[i0][id] + lineScore1 - lineScore;
 
-				if (newScore < WINNING_ATTEMP_THRESHOLD)
+				if (newScore < THREE_THREE_SCORE)
 				{
 					int id1 = Board::Coord2Id(row1, col1);
-					gridCheckStatus[id1] = E_GREAT;
+					gridCheckStatus[id1] = min(gridCheckStatus[id1], type);
 				}
 			}
 		}
@@ -662,77 +663,148 @@ void Board::UpdateGridsInfo(int i0)
 {
 	int i1 = 1 - i0;
 
-	int bestScore = 0;
-	keyGrid = 0xff;
-
-	gridCheckStatus.fill(E_PRIORITY_MAX);
-	hasPriority.fill(false);
+	gridCheckStatus.fill(E_GRID_TYPE_MAX);
+	hasGridType.fill(false);
 
 	for (int i = 0; i < GRID_NUM; ++i)
 	{
 		int score0 = scoreInfo[i0][i];
 		int score1 = scoreInfo[i1][i];
 
-		if (score0 >= WIN_THRESHOLD)
+		if (score0 >= THREE_THREE_SCORE || score1 >= THREE_THREE_SCORE)
 		{
-			keyGrid = i;
-			gridCheckStatus[i] = E_WINNING;
-			hasPriority[E_WINNING] = true;
-			return;
-		}
-		else if (score1 >= WIN_THRESHOLD)
-		{
-			keyGrid = i;
-			bestScore = score1;
-			gridCheckStatus[i] = E_WINNING;
-			hasPriority[E_WINNING] = true;
-		}
-		else if (score0 >= WINNING_THRESHOLD)
-		{
-			if (score0 > bestScore)
+			if (score0 >= FIVE_SCORE)
 			{
-				keyGrid = i;
-				bestScore = score0;
-				gridCheckStatus[i] = E_WINNING;
-				hasPriority[E_WINNING] = true;
+				gridCheckStatus[i] = E_FIVE;
+				hasGridType[E_FIVE] = true;
 			}
-		}
-		else if (score1 >= WINNING_ATTEMP_THRESHOLD)
-		{
-			gridCheckStatus[i] = E_GREAT;
-			hasPriority[E_GREAT] = true;
+			else if (score1 >= FIVE_SCORE)
+			{
+				gridCheckStatus[i] = E_COUNTER_FIVE;
+				hasGridType[E_COUNTER_FIVE] = true;
+			}
+			else if (score0 >= OPEN_FOUR_SCORE)
+			{
+				gridCheckStatus[i] = E_OPEN_FOUR;
+				hasGridType[E_OPEN_FOUR] = true;
+			}
+			else if (score0 >= FOUR_THREE_SCORE)
+			{
+				gridCheckStatus[i] = E_FOUR_THREE;
+				hasGridType[E_FOUR_THREE] = true;
+			}
+			else if (score0 >= CLOSE_FOUR_SCORE)
+			{
+				gridCheckStatus[i] = E_CLOSE_FOUR;
+				hasGridType[E_CLOSE_FOUR] = true;
+			}
+			else if (score1 >= FOUR_THREE_SCORE)
+			{
+				gridCheckStatus[i] = E_COUNTER_FOUR_THREE;
+				hasGridType[E_COUNTER_FOUR_THREE] = true;
 
-			FindOtherGrids(i1, i); // find other possible counter moves
-		}
-		else if (score0 >= WINNING_ATTEMP_THRESHOLD)
-		{
-			gridCheckStatus[i] = E_GREAT;
-			hasPriority[E_GREAT] = true;
-		}
-		else if (score0 >= GOOD_THRESHOLD || score1 >= GOOD_THRESHOLD)
-		{
-			if (gridCheckStatus[i] > E_GOOD) // may be E_GREAT by FindOtherGrids
-			{
-				gridCheckStatus[i] = E_GOOD;
-				hasPriority[E_GOOD] = true;
+				FindOtherGrids(i1, i, E_COUNTER_FOUR_THREE); // find other possible counter moves
 			}
-		}
-		else if (score0 > 0 || score1 > 0)
-		{
-			if (gridCheckStatus[i] > E_POOR) // may be E_GREAT by FindOtherGrids
+			else if (score0 >= THREE_THREE_SCORE)
 			{
-				gridCheckStatus[i] = E_POOR;
-				hasPriority[E_POOR] = true;
+				gridCheckStatus[i] = E_THREE_THREE;
+				hasGridType[E_THREE_THREE] = true;
+			}
+			else //if (score1 >= THREE_THREE_SCORE)
+			{
+				gridCheckStatus[i] = E_COUNTER_THREE_THREE;
+				hasGridType[E_COUNTER_THREE_THREE] = true;
+
+				FindOtherGrids(i1, i, E_COUNTER_THREE_THREE); // find other possible counter moves
 			}
 		}
 		else
 		{
-			if (gridCheckStatus[i] > E_OTHER) // may be E_GREAT by FindOtherGrids
+			if (score0 >= TWO_TWO_SCORE || score1 >= TWO_TWO_SCORE)
 			{
-				gridCheckStatus[i] = E_OTHER;
-				hasPriority[E_OTHER] = true;
+				if (score0 >= OPEN_THREE_SCORE)
+				{
+					gridCheckStatus[i] = min(gridCheckStatus[i], E_OPEN_THREE);
+				}
+				else if (score1 >= OPEN_THREE_SCORE)
+				{
+					gridCheckStatus[i] = min(gridCheckStatus[i], E_COUNTER_OPEN_THREE);
+				}
+				else //if (score0 >= TWO_TWO_SCORE || score1 >= TWO_TWO_SCORE)
+				{
+					gridCheckStatus[i] = min(gridCheckStatus[i], E_TWO_TWO);
+				}
+			}
+			else
+			{
+				if (score0 > 0 || score1 > 0)
+				{
+					gridCheckStatus[i] = min(gridCheckStatus[i], E_OPEN_TWO);
+				}
+				else
+				{
+					gridCheckStatus[i] = min(gridCheckStatus[i], E_OTHER);
+				}
 			}
 		}
+	}
+
+	int bestType = E_GRID_TYPE_MAX;
+	for (int i = 0; i < E_GRID_TYPE_MAX; ++i)
+	{
+		if (hasGridType[i])
+		{
+			bestType = i;
+			break;
+		}
+	}
+
+	keyGrid = 0xff;
+	hasPriority.fill(false);
+
+	for (int i = 0; i < GRID_NUM; ++i)
+	{
+		int priority = E_PRIORITY_MAX;
+
+		switch (gridCheckStatus[i])
+		{
+		case E_FIVE:
+		case E_COUNTER_FIVE:
+		case E_OPEN_FOUR:
+		case E_FOUR_THREE:
+			if (bestType == gridCheckStatus[i])
+			{
+				gridCheckStatus[i] = E_HIGHEST;
+				keyGrid = i;
+				return;
+			}
+		case E_CLOSE_FOUR:
+			priority = (bestType <= E_COUNTER_THREE_THREE) ? E_HIGH : E_MIDDLE; // try to win before opponent
+			break;
+		case E_COUNTER_FOUR_THREE:
+			priority = E_HIGH;
+			break;
+		case E_THREE_THREE:
+		case E_COUNTER_THREE_THREE:
+			priority = (bestType <= E_COUNTER_FOUR_THREE) ? E_MIDDLE : E_HIGH; // counter 4 + 3 first
+			break;
+		case E_OPEN_THREE:
+			priority = (bestType == E_COUNTER_THREE_THREE) ? E_HIGH : E_MIDDLE; // try to win before opponent
+			break;
+		case E_COUNTER_OPEN_THREE:
+		case E_TWO_TWO:
+			priority = E_MIDDLE;
+			break;
+		case E_OPEN_TWO:
+			priority = E_LOW;
+			break;
+		case E_OTHER:
+			priority = E_LOWEST;
+			break;
+		}
+
+		gridCheckStatus[i] = priority;
+		hasPriority[priority] = true;
 	}
 }
 
@@ -849,7 +921,7 @@ void GameBase::UpdateValidGrids()
 		return;
 	}
 	
-	for (int i = Board::E_GREAT; i < Board::E_PRIORITY_MAX; ++i)
+	for (int i = Board::E_HIGH; i < Board::E_PRIORITY_MAX; ++i)
 	{
 		if (board.hasPriority[i])
 		{
@@ -863,15 +935,15 @@ bool GameBase::UpdateValidGridsExtra()
 {
 	if (board.keyGrid == 0xff)
 	{
-		if (board.hasPriority[Board::E_GREAT] && board.hasPriority[Board::E_GOOD])
+		if (board.hasPriority[Board::E_HIGH] && board.hasPriority[Board::E_MIDDLE])
 		{
-			board.GetGridsByPriority(Board::E_GOOD, validGrids, validGridCount);
+			board.GetGridsByPriority(Board::E_MIDDLE, validGrids, validGridCount);
 			return true;
 		}
 
-		if (!board.hasPriority[Board::E_GREAT] && board.hasPriority[Board::E_GOOD] && board.hasPriority[Board::E_POOR])
+		if (!board.hasPriority[Board::E_HIGH] && board.hasPriority[Board::E_MIDDLE] && board.hasPriority[Board::E_LOW])
 		{
-			board.GetGridsByPriority(Board::E_POOR, validGrids, validGridCount);
+			board.GetGridsByPriority(Board::E_LOW, validGrids, validGridCount);
 			return true;
 		}
 	}

@@ -13,6 +13,7 @@ const int	EXPAND_THRESHOLD = 3;
 const bool	ENABLE_MULTI_THREAD = true;
 const float	FAST_STOP_THRESHOLD = 0.1f;
 const float	FAST_STOP_BRANCH_FACTOR = 0.005f;
+const bool	ENABLE_TRY_MORE_NODE = false;
 const int	TRY_MORE_NODE_THRESHOLD = 1000;
 
 TreeNode::TreeNode(TreeNode *p)
@@ -140,7 +141,7 @@ bool MCTS::PreExpandTree(TreeNode *node)
 	else
 	{
 		// try grids with lower priority after certain visits
-		if (node->gridLevel == 0 && node->visit > TRY_MORE_NODE_THRESHOLD)
+		if (ENABLE_TRY_MORE_NODE && node->gridLevel == 0 && node->visit > TRY_MORE_NODE_THRESHOLD)
 		{
 			if (node->game->UpdateValidGridsExtra())
 			{

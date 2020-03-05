@@ -14,15 +14,15 @@ const int BOARD_SIZE = 15;
 const int WIN_COUNT = 5;
 const int GRID_NUM = BOARD_SIZE * BOARD_SIZE;
 
-const int WIN_SCORE = 1000; // continuous 5
-const int WINNING_SCORE = 250; // open 4
-const int GOOD_SCORE = 50; // half-open 4, jump 4, open 3, jump 3
-const int OTHER_SCORE = 5; // half-open 3 or open 2 or jump 2
+const int FIVE_SCORE = 1000; // continuous 5
+const int OPEN_FOUR_SCORE = 250; // open 4
+const int CLOSE_FOUR_SCORE = 60; // half-open 4, jump 4
+const int OPEN_THREE_SCORE = 50; // open 3, jump 3
+const int OTHER_SCORE = 3; // half-open 3 or open 2 or jump 2
 
-const int WIN_THRESHOLD = WIN_SCORE;
-const int WINNING_THRESHOLD = WINNING_SCORE;
-const int WINNING_ATTEMP_THRESHOLD = GOOD_SCORE * 2;
-const int GOOD_THRESHOLD = OTHER_SCORE * 2;
+const int FOUR_THREE_SCORE = OPEN_THREE_SCORE + CLOSE_FOUR_SCORE; // 3 + 4, 4 + 4
+const int THREE_THREE_SCORE = OPEN_THREE_SCORE * 2; // 3 + 3, 3 + 4, 4 + 4
+const int TWO_TWO_SCORE = OTHER_SCORE * 2;
 
 const int LINE_ID_MAX = 262144; // 4 ^ 9
 
@@ -49,13 +49,31 @@ public:
 		E_RIGHT,
 	};
 
+	enum GridType
+	{
+		E_FIVE = 0,
+		E_COUNTER_FIVE,
+		E_OPEN_FOUR,
+		E_FOUR_THREE,
+		E_CLOSE_FOUR,
+		E_COUNTER_FOUR_THREE,
+		E_THREE_THREE,
+		E_COUNTER_THREE_THREE,
+		E_OPEN_THREE,
+		E_COUNTER_OPEN_THREE,
+		E_TWO_TWO,
+		E_OPEN_TWO,
+		E_OTHER,
+		E_GRID_TYPE_MAX,
+	};
+
 	enum ChessPriority
 	{
-		E_WINNING = 0,
-		E_GREAT,
-		E_GOOD,
-		E_POOR,
-		E_OTHER,
+		E_HIGHEST = 0,
+		E_HIGH,
+		E_MIDDLE,
+		E_LOW,
+		E_LOWEST,
 		E_PRIORITY_MAX,
 	};
 
@@ -80,6 +98,7 @@ public:
 	array<char, GRID_NUM> grids;
 	array<short, GRID_NUM> scoreInfo[2];
 	array<char, GRID_NUM> gridCheckStatus;
+	array<bool, E_GRID_TYPE_MAX> hasGridType;
 	array<bool, E_PRIORITY_MAX> hasPriority;
 
 private:
@@ -88,7 +107,7 @@ private:
 
 	void UpdateScore(int row, int col, int rowX, int colX, ChessDirection direction, int side);
 	void UpdateGridsInfo(int i0);
-	void FindOtherGrids(int i0, int id);
+	void FindOtherGrids(int i0, int id, GridType type);
 
 	static void InitLineScoreDict();
 	static short CalcLineScore(array<char, 9> line);
