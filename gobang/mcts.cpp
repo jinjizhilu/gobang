@@ -10,7 +10,7 @@ const char* LOG_FILE_FULL = "MCTS_FULL.log";
 const float Cp = 2.0f;
 const float SEARCH_TIME = 2.0f;
 const int	EXPAND_THRESHOLD = 3;
-const bool	ENABLE_MULTI_THREAD = true;
+const bool	ENABLE_MULTI_THREAD = false;
 const float	FAST_STOP_THRESHOLD = 0.1f;
 const float	FAST_STOP_BRANCH_FACTOR = 0.005f;
 const bool	ENABLE_TRY_MORE_NODE = false;
@@ -305,6 +305,8 @@ void MCTS::PrintTree(TreeNode *node, int level)
 	{
 		freopen_s(&fp, LOG_FILE, "a+", stdout);
 		node->game->board.Print(node->game->lastMove);
+		node->game->board.PrintScore(3 - node->game->GetSide());
+		node->game->board.PrintScore(node->game->GetSide());
 		node->game->board.PrintPriority();
 		fclose(stdout);
 		freopen_s(&fp, "CON", "w", stdout);
@@ -384,11 +386,13 @@ int MCTS::CheckOpeningBook(GameBase *state)
 	if (state->turn == 1)
 		return centerId;
 
-	if (state->turn == 2 && state->lastMove == centerId)
+	if (state->turn == 2 && Board::CalcDistance(state->lastMove, centerId) <= 3)
 	{
-		int neighbourId[8] = { Game::Str2Id("G7"), Game::Str2Id("G8"), Game::Str2Id("G9"), Game::Str2Id("H7"),
-			Game::Str2Id("H9"), Game::Str2Id("I7"), Game::Str2Id("I8"), Game::Str2Id("I9") };
-		return neighbourId[rand() % 8];
+		int id = state->GetNextMove();
+		while (Board::CalcDistance(state->lastMove, id) > 1)
+			id = state->GetNextMove();
+
+		return id;
 	}
 
 	return -1;

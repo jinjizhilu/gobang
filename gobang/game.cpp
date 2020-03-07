@@ -4,9 +4,16 @@
 
 #define max(a, b) ((a > b) ? a : b)
 #define min(a, b) ((a < b) ? a : b)
+#define abs(a) ((a > 0) ? a : -a)
+
 #define PRINT_SCORE 0
 #define PRINT_PRIORITY 0
 #define OUTPUT_LINE_SCORE_DICT 0
+#define OUTPUT_RESTRICTED_SCORE 0
+
+bool Board::RestrictedMoveRule = true;
+bool Board::isLineScoreDictReady = false;
+array<int, LINE_ID_MAX> Board::lineScoreDict;
 
 Board::Board()
 {
@@ -125,7 +132,7 @@ void Board::PrintPriority()
 			if (grid == E_EMPTY)
 			{
 				int priority = gridCheckStatus[id];
-				if (priority < E_OTHER)
+				if (priority < E_LOWEST)
 				{
 					printf("%d ", priority + 1);
 				}
@@ -136,11 +143,11 @@ void Board::PrintPriority()
 			}
 			if (grid == E_BLACK)
 			{
-				cout << "@ ";
+				cout << "+ ";
 			}
 			if (grid == E_WHITE)
 			{
-				cout << "X ";
+				cout << "- ";
 			}
 		}
 		cout << endl;
@@ -165,51 +172,51 @@ bool Board::SetGrid(int row, int col, char value)
 	return true;
 }
 
-int Board::GetChessNumInLine(int id, ChessDirection direction)
+bool Board::IsWin(int id)
 {
 	int side = grids[id];
+	int i0 = (side == E_BLACK) ? 0 : 1;
+	int score0 = scoreInfo[i0][id];
 
-	int row0, col0;
-	Board::Id2Coord(id, row0, col0);
-
-	int dx, dy;
-	Board::Direction2DxDy(direction, dx, dy);
-
-	int leftCount = 0;
-	int row = row0, col = col0;
-	for (int i = 0; i < 4; ++i)
+	if (score0 >= FIVE_SCORE)
 	{
-		row -= dy; col -= dx;
+		if (Board::RestrictedMoveRule && side == E_BLACK && IsRestrictedMove(score0))
+			return false;
 
-		if (GetGrid(row, col) != side)
-			break;
-
-		++leftCount;
+		return true;
 	}
 
-	int rightCount = 0;
-	row = row0; col = col0;
-	for (int i = 0; i < 4; ++i)
-	{
-		row += dy; col += dx;
-
-		if (GetGrid(row, col) != side)
-			break;
-
-		++rightCount;
-	}
-
-	int num = leftCount + rightCount + 1;
-
-	return num;
+	return false;
 }
 
-bool Board::isLineScoreDictReady = false;
-array<int, LINE_ID_MAX> Board::lineScoreDict;
+bool Board::IsLose(int id)
+{
+	if (Board::RestrictedMoveRule && grids[id] == E_BLACK)
+	{
+		int score0 = scoreInfo[0][id];
+		if (IsRestrictedMove(score0))
+			return true;
+	}
+	return false;
+}
 
 void Board::InitLineScoreDict()
 {
 	FILE *fp;
+
+	if (OUTPUT_RESTRICTED_SCORE)
+	{
+		fopen_s(&fp, "restricted_score.log", "w");
+		for (int i = 0; i < 10000; ++i)
+		{
+			if (Board::IsRestrictedMove(i))
+			{
+				fprintf(fp, "%d\n", i);
+			}
+		}
+		fclose(fp);
+	}
+
 	char strmap[4] = { ' ', '@', 'O', 'X' };
 
 	if (OUTPUT_LINE_SCORE_DICT)
@@ -405,6 +412,9 @@ short Board::CalcLineScore(array<char, 9> line)
 		if (total1 >= WIN_COUNT) // continuous 5
 		{
 			score1 = FIVE_SCORE;
+
+			if (Board::RestrictedMoveRule && side == E_BLACK && total1 > WIN_COUNT)
+				return RESTRICTED_SCORE;
 		}
 		else if (total1 == WIN_COUNT - 1)
 		{
@@ -442,6 +452,9 @@ short Board::CalcLineScore(array<char, 9> line)
 			if (total3 >= WIN_COUNT && total4 >= WIN_COUNT) // 2 jump 4
 			{
 				score2 = OPEN_FOUR_SCORE;
+
+				if (Board::RestrictedMoveRule && side == E_BLACK)
+					return RESTRICTED_SCORE;
 			}
 			else // jump 4
 			{
@@ -525,9 +538,6 @@ void Board::UpdatScoreInfo(int id)
 				break;
 		}
 	}
-
-	for (int i = 0; i < 2; ++i)
-		scoreInfo[i][id] = -side;
 
 	UpdateGridsInfo(i1); // grids info for next turn
 }
@@ -668,8 +678,31 @@ void Board::UpdateGridsInfo(int i0)
 
 	for (int i = 0; i < GRID_NUM; ++i)
 	{
+		if (grids[i] != E_EMPTY)
+			continue;
+
 		int score0 = scoreInfo[i0][i];
 		int score1 = scoreInfo[i1][i];
+
+		if (Board::RestrictedMoveRule)
+		{
+			if (i1 == 0 && score1 >= THREE_THREE_SCORE && IsRestrictedMove(score1))
+			{
+				score1 = 0;
+
+				if (score0 < THREE_THREE_SCORE) // leave opponent's restricted move untouched if not neccessary
+				{
+					gridCheckStatus[i] = E_OTHER;
+					continue;
+				}
+			}
+
+			if (i0 == 0 && score0 >= THREE_THREE_SCORE && IsRestrictedMove(score0))
+			{
+				gridCheckStatus[i] = E_RESTRICTED;
+				continue;
+			}
+		}
 
 		if (score0 >= THREE_THREE_SCORE || score1 >= THREE_THREE_SCORE)
 		{
@@ -776,7 +809,6 @@ void Board::UpdateGridsInfo(int i0)
 			{
 				gridCheckStatus[i] = E_HIGHEST;
 				keyGrid = i;
-				return;
 			}
 		case E_CLOSE_FOUR:
 			priority = (bestType <= E_COUNTER_THREE_THREE) ? E_HIGH : E_MIDDLE; // try to win before opponent
@@ -799,6 +831,7 @@ void Board::UpdateGridsInfo(int i0)
 			priority = E_LOW;
 			break;
 		case E_OTHER:
+		case E_RESTRICTED:
 			priority = E_LOWEST;
 			break;
 		}
@@ -806,6 +839,34 @@ void Board::UpdateGridsInfo(int i0)
 		gridCheckStatus[i] = priority;
 		hasPriority[priority] = true;
 	}
+}
+
+__declspec(noinline)
+bool Board::IsRestrictedMove(int score)
+{
+	if (score >= RESTRICTED_SCORE)
+	{
+		if (score % RESTRICTED_SCORE >= FIVE_SCORE)
+			return false; // five has higher priority than restricted move
+		else
+			return true;
+	}
+
+	if (score >= FIVE_SCORE) // five has higher priority than restricted move
+		return false;
+
+	if (score >= THREE_THREE_SCORE)
+	{
+		if (score >= CLOSE_FOUR_SCORE + OPEN_THREE_SCORE && score < CLOSE_FOUR_SCORE * 2) // 4 + 3
+			return false;
+
+		if (score >= OPEN_FOUR_SCORE && score < OPEN_FOUR_SCORE + CLOSE_FOUR_SCORE) // 4 or 4 + 3
+			return false;
+
+		return true;
+	}
+
+	return false;
 }
 
 void Board::GetGridsByPriority(ChessPriority priority, array<uint8_t, GRID_NUM> &result, int &count)
@@ -868,6 +929,17 @@ void Board::Direction2DxDy(ChessDirection direction, int &dx, int &dy)
 		break;
 	}
 }
+
+int Board::CalcDistance(int id1, int id2)
+{
+	int row1, col1, row2, col2;
+	Board::Id2Coord(id1, row1, col1);
+	Board::Id2Coord(id2, row2, col2);
+	
+	int dx = abs(col1 - col2);
+	int dy = abs(row1 - row2);
+	return max(dx, dy);
+}
 ///////////////////////////////////////////////////////////////////////
 
 GameBase::GameBase()
@@ -903,8 +975,11 @@ bool GameBase::PutChess(int id)
 	UpdateValidGrids();
 	++turn;
 
-	if (IsWinThisTurn(lastMove))
+	if (board.IsWin(lastMove))
 		state = (side == Board::E_BLACK) ? E_BLACK_WIN : E_WHITE_WIN;
+
+	if (side == Board::E_BLACK && board.IsLose(lastMove)) // lose due to restricted move
+		state = E_WHITE_WIN;
 
 	if (turn > GRID_NUM)
 		state = E_DRAW;
@@ -955,16 +1030,6 @@ int GameBase::GetSide()
 	return (turn % 2 == 1) ? Board::E_BLACK : Board::E_WHITE;
 }
 
-bool GameBase::IsWinThisTurn(int move)
-{
-	for (int i = 0; i < 4; ++i)
-	{
-		if (board.GetChessNumInLine(move, (Board::ChessDirection)i) >= WIN_COUNT)
-			return true;
-	}
-	return false;
-}
-
 int GameBase::GetNextMove()
 {
 	int id = rand() % validGridCount;
@@ -1013,7 +1078,10 @@ void Game::RebuildBoardInfo()
 
 void Game::Print()
 {
-	string stateText[] = { "Normal", "Black Win!", "White Win!", "Draw" };
+	string stateText[] = { "Normal", "Black Win", "White Win", "Draw" };
+
+	if (state == E_WHITE_WIN && GetSide() == Board::E_WHITE)
+		printf("Black lose for restricted move!\n");
 
 	printf("=== Current State: %s ===\n", stateText[state].c_str());
 	board.Print(lastMove);

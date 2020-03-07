@@ -19,6 +19,7 @@ const int OPEN_FOUR_SCORE = 250; // open 4
 const int CLOSE_FOUR_SCORE = 60; // half-open 4, jump 4
 const int OPEN_THREE_SCORE = 50; // open 3, jump 3
 const int OTHER_SCORE = 3; // half-open 3 or open 2 or jump 2
+const int RESTRICTED_SCORE = 5000; // restricted moves
 
 const int FOUR_THREE_SCORE = OPEN_THREE_SCORE + CLOSE_FOUR_SCORE; // 3 + 4, 4 + 4
 const int THREE_THREE_SCORE = OPEN_THREE_SCORE * 2; // 3 + 3, 3 + 4, 4 + 4
@@ -51,6 +52,7 @@ public:
 
 	enum GridType
 	{
+		E_RESTRICTED = -1,
 		E_FIVE = 0,
 		E_COUNTER_FIVE,
 		E_OPEN_FOUR,
@@ -84,16 +86,18 @@ public:
 	void PrintScore(int side);
 	void PrintPriority();
 
-	int GetChessNumInLine(int id, ChessDirection direction);
+	bool IsWin(int id);
+	bool IsLose(int id);
 	void GetGridsByPriority(ChessPriority priority, array<uint8_t, GRID_NUM> &result, int &count);
 
 	void UpdatScoreInfo(int id);
-
+	
 	static int Coord2Id(int row, int col);
 	static void Id2Coord(int id, int &row, int &col);
 	static bool IsValidCoord(int row, int col);
 	static void Direction2DxDy(ChessDirection direction, int &dx, int &dy);
-	
+	static int CalcDistance(int id1, int id2);
+
 	uint8_t	keyGrid;
 	array<char, GRID_NUM> grids;
 	array<short, GRID_NUM> scoreInfo[2];
@@ -108,6 +112,9 @@ private:
 	void UpdateScore(int row, int col, int rowX, int colX, ChessDirection direction, int side);
 	void UpdateGridsInfo(int i0);
 	void FindOtherGrids(int i0, int id, GridType type);
+
+	static bool RestrictedMoveRule;
+	static bool IsRestrictedMove(int id);
 
 	static void InitLineScoreDict();
 	static short CalcLineScore(array<char, 9> line);
@@ -132,7 +139,6 @@ public:
 	bool PutChess(int id);
 	int GetSide();
 	bool IsLonelyGrid(int id, int radius);
-	bool IsWinThisTurn(int move);
 	void UpdateValidGrids();
 	bool UpdateValidGridsExtra();
 	int GetNextMove();
