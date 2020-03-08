@@ -44,7 +44,7 @@ private:
 	// custom optimization
 	bool PreExpandTree(TreeNode *node);
 
-	int CheckOpeningBook(GameBase *state);
+	int CheckBook(GameBase *state);
 
 	void ClearNodes(TreeNode *node);
 	float CalcScore(const TreeNode *node, float c, float logParentVisit);
@@ -56,7 +56,7 @@ private:
 	void RecycleTreeNode(TreeNode *node);
 	void ClearPool();
 	
-	int maxDepth;
+	int maxDepth, fastStopSteps, fastStopCount;
 	GameBase gameCache[THREAD_NUM_MAX];
 	list<TreeNode*> pool;
 	TreeNode *root;

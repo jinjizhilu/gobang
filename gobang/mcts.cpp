@@ -10,9 +10,10 @@ const char* LOG_FILE_FULL = "MCTS_FULL.log";
 const float Cp = 2.0f;
 const float SEARCH_TIME = 2.0f;
 const int	EXPAND_THRESHOLD = 3;
-const bool	ENABLE_MULTI_THREAD = false;
+const bool	ENABLE_MULTI_THREAD = true;
 const float	FAST_STOP_THRESHOLD = 0.1f;
-const float	FAST_STOP_BRANCH_FACTOR = 0.005f;
+const float	FAST_STOP_BRANCH_FACTOR = 0.01f;
+
 const bool	ENABLE_TRY_MORE_NODE = false;
 const int	TRY_MORE_NODE_THRESHOLD = 1000;
 
@@ -83,9 +84,18 @@ void MCTS::SearchThread(int id, int seed, MCTS *mcts, clock_t startTime)
 
 int MCTS::Search(Game *state)
 {
-	int move = CheckOpeningBook((GameBase*)state);
+	int move = CheckBook((GameBase*)state);
 	if (move != -1)
+	{
+		printf("using book check result (no searching)\n");
 		return move;
+	}
+
+	fastStopSteps = 0;
+	fastStopCount = 0;
+
+	Board::hitCount = 0;
+	Board::totalCount = 0;
 
 	root = NewTreeNode(NULL);
 	*(root->game) = *((GameBase*)state);
@@ -109,7 +119,9 @@ int MCTS::Search(Game *state)
 	maxDepth = 0;
 	PrintTree(root);
 	PrintFullTree(root);
-	printf("time: %.2f, iteration: %d, depth: %d, win: %d/%d\n", float(clock() - startTime) / 1000, root->visit, maxDepth, (int)best->value, best->visit);
+	printf("time: %.2f, iteration: %d, depth: %d, win: %.2f%% (%d/%d)\n", float(clock() - startTime) / 1000, root->visit, maxDepth, best->value * 100 / best->visit, (int)best->value, best->visit);
+	printf("fast stop count: %d, average stop steps: %d\n", fastStopCount, fastStopSteps / (fastStopCount + 1));
+	//printf("cache hit: %.2f%% (%d/%d)\n", (float)Board::hitCount * 100 / Board::totalCount, Board::hitCount, Board::totalCount);
 
 	ClearNodes(root);
 
@@ -213,14 +225,16 @@ float MCTS::DefaultPolicy(TreeNode *node, int id)
 	float weight = 1.0f;
 	while (gameCache[id].state == GameBase::E_NORMAL)
 	{
-		weight *= (1 - FAST_STOP_BRANCH_FACTOR * gameCache[id].validGridCount);
+		float factor = (1 - FAST_STOP_BRANCH_FACTOR * gameCache[id].validGridCount);
+		weight *= max(factor, 0.8f);
 
 		int move = gameCache[id].GetNextMove();
 		gameCache[id].PutChess(move);
 
 		if (weight < FAST_STOP_THRESHOLD)
 		{
-			//cout << (gameCache[id].turn - node->game->turn) << endl;
+			fastStopCount++;
+			fastStopSteps += gameCache[id].turn - node->game->turn;
 			return 0.5;
 		}
 	}
@@ -379,7 +393,7 @@ void MCTS::PrintFullTree(TreeNode *node, int level)
 	}
 }
 
-int MCTS::CheckOpeningBook(GameBase *state)
+int MCTS::CheckBook(GameBase *state)
 {
 	int centerId = Game::Str2Id("H8");
 

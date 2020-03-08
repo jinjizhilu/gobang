@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <list>
+#include <map>
 
 #pragma warning (disable:4244)
 #pragma warning (disable:4018)
@@ -90,7 +91,7 @@ public:
 	bool IsLose(int id);
 	void GetGridsByPriority(ChessPriority priority, array<uint8_t, GRID_NUM> &result, int &count);
 
-	void UpdatScoreInfo(int id);
+	void UpdatScoreInfo(int id, int turn);
 	
 	static int Coord2Id(int row, int col);
 	static void Id2Coord(int id, int &row, int &col);
@@ -98,12 +99,16 @@ public:
 	static void Direction2DxDy(ChessDirection direction, int &dx, int &dy);
 	static int CalcDistance(int id1, int id2);
 
+	static int hitCount;
+	static int totalCount;
+
+	uint64_t hashKey;
 	uint8_t	keyGrid;
 	array<char, GRID_NUM> grids;
 	array<short, GRID_NUM> scoreInfo[2];
 	array<char, GRID_NUM> gridCheckStatus;
 	array<bool, E_GRID_TYPE_MAX> hasGridType;
-	array<bool, E_PRIORITY_MAX> hasPriority;
+	array<bool, E_PRIORITY_MAX + 1> hasPriority;
 
 private:
 	char GetGrid(int row, int col);
@@ -121,6 +126,11 @@ private:
 
 	static array<int, LINE_ID_MAX> lineScoreDict;
 	static bool isLineScoreDictReady;
+
+	static map<uint64_t, bool> boardDict;
+	static array<uint64_t, GRID_NUM> hashKeyDict;
+	static bool isHashKeyDictReady;
+	static void InitHashKeyDict();
 };
 
 class GameBase

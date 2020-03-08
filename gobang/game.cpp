@@ -1,10 +1,10 @@
 #include "game.h"
 #include <cstdlib>
 #include <cassert>
+#include <cmath>
 
 #define max(a, b) ((a > b) ? a : b)
 #define min(a, b) ((a < b) ? a : b)
-#define abs(a) ((a > 0) ? a : -a)
 
 #define PRINT_SCORE 0
 #define PRINT_PRIORITY 0
@@ -12,19 +12,30 @@
 #define OUTPUT_RESTRICTED_SCORE 0
 
 bool Board::RestrictedMoveRule = true;
+
 bool Board::isLineScoreDictReady = false;
 array<int, LINE_ID_MAX> Board::lineScoreDict;
+
+int Board::hitCount = 0;
+int Board::totalCount = 0;
+bool Board::isHashKeyDictReady = false;
+array<uint64_t, GRID_NUM> Board::hashKeyDict;
+map<uint64_t, bool> Board::boardDict;
 
 Board::Board()
 {
 	if (!isLineScoreDictReady)
 		InitLineScoreDict();
 
+	if (!isHashKeyDictReady)
+		InitHashKeyDict();
+
 	Clear();
 }
 
 void Board::Clear()
 {
+	hashKey = 0;
 	grids.fill(E_EMPTY);
 	scoreInfo[0].fill(0);
 	scoreInfo[1].fill(0);
@@ -493,7 +504,16 @@ short Board::CalcLineScore(array<char, 9> line)
 	return score;
 }
 
-void Board::UpdatScoreInfo(int id)
+void Board::InitHashKeyDict()
+{
+	for (int i = 0; i < GRID_NUM; ++i)
+	{
+		hashKeyDict[i] = ((uint64_t)rand() << 48) + ((uint64_t)rand() << 32) + ((uint64_t)rand() << 16) + (uint64_t)rand();
+	}
+	isHashKeyDictReady = true;
+}
+
+void Board::UpdatScoreInfo(int id, int turn)
 {
 	int row0, col0;
 	Board::Id2Coord(id, row0, col0);
@@ -540,6 +560,17 @@ void Board::UpdatScoreInfo(int id)
 	}
 
 	UpdateGridsInfo(i1); // grids info for next turn
+
+	hashKey += hashKeyDict[id] * side;
+	if (boardDict.find(hashKey) != boardDict.end())
+	{
+		hitCount++;
+	}
+	else
+	{
+		boardDict[hashKey] = true;
+	}
+	totalCount++;
 }
 
 void Board::UpdateScore(int row, int col, int rowX, int colX, ChessDirection direction, int side)
@@ -807,9 +838,14 @@ void Board::UpdateGridsInfo(int i0)
 		case E_FOUR_THREE:
 			if (bestType == gridCheckStatus[i])
 			{
-				gridCheckStatus[i] = E_HIGHEST;
+				priority = E_HIGHEST;
 				keyGrid = i;
 			}
+			else
+			{
+				priority = E_HIGH;
+			}
+			break;
 		case E_CLOSE_FOUR:
 			priority = (bestType <= E_COUNTER_THREE_THREE) ? E_HIGH : E_MIDDLE; // try to win before opponent
 			break;
@@ -968,7 +1004,7 @@ bool GameBase::PutChess(int id)
 
 	int side = GetSide();
 	board.grids[id] = side;
-	board.UpdatScoreInfo(id);
+	board.UpdatScoreInfo(id, turn);
 
 	lastMove = id;
 
@@ -1072,7 +1108,7 @@ void Game::RebuildBoardInfo()
 		int id = record[i];
 
 		board.grids[id] = side;
-		board.UpdatScoreInfo(id);
+		board.UpdatScoreInfo(id, i + 1);
 	}
 }
 
