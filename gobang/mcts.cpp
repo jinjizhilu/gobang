@@ -14,7 +14,7 @@ const bool	ENABLE_MULTI_THREAD = true;
 const float	FAST_STOP_THRESHOLD = 0.1f;
 const float	FAST_STOP_BRANCH_FACTOR = 0.01f;
 
-const bool	ENABLE_TRY_MORE_NODE = false;
+const bool	ENABLE_TRY_MORE_NODE = true;
 const int	TRY_MORE_NODE_THRESHOLD = 1000;
 
 TreeNode::TreeNode(TreeNode *p)
@@ -94,9 +94,6 @@ int MCTS::Search(Game *state)
 	fastStopSteps = 0;
 	fastStopCount = 0;
 
-	Board::hitCount = 0;
-	Board::totalCount = 0;
-
 	root = NewTreeNode(NULL);
 	*(root->game) = *((GameBase*)state);
 	root->validGridCount = root->game->validGridCount;
@@ -121,7 +118,6 @@ int MCTS::Search(Game *state)
 	PrintFullTree(root);
 	printf("time: %.2f, iteration: %d, depth: %d, win: %.2f%% (%d/%d)\n", float(clock() - startTime) / 1000, root->visit, maxDepth, best->value * 100 / best->visit, (int)best->value, best->visit);
 	printf("fast stop count: %d, average stop steps: %d\n", fastStopCount, fastStopSteps / (fastStopCount + 1));
-	//printf("cache hit: %.2f%% (%d/%d)\n", (float)Board::hitCount * 100 / Board::totalCount, Board::hitCount, Board::totalCount);
 
 	ClearNodes(root);
 
@@ -153,7 +149,7 @@ bool MCTS::PreExpandTree(TreeNode *node)
 	else
 	{
 		// try grids with lower priority after certain visits
-		if (ENABLE_TRY_MORE_NODE && node->gridLevel == 0 && node->visit > TRY_MORE_NODE_THRESHOLD)
+		if (ENABLE_TRY_MORE_NODE && node->gridLevel == 0 && node->visit > TRY_MORE_NODE_THRESHOLD * node->children.size())
 		{
 			if (node->game->UpdateValidGridsExtra())
 			{
@@ -226,7 +222,7 @@ float MCTS::DefaultPolicy(TreeNode *node, int id)
 	while (gameCache[id].state == GameBase::E_NORMAL)
 	{
 		float factor = (1 - FAST_STOP_BRANCH_FACTOR * gameCache[id].validGridCount);
-		weight *= max(factor, 0.8f);
+		weight *= max(factor, 0.5f);
 
 		int move = gameCache[id].GetNextMove();
 		gameCache[id].PutChess(move);
@@ -235,7 +231,9 @@ float MCTS::DefaultPolicy(TreeNode *node, int id)
 		{
 			fastStopCount++;
 			fastStopSteps += gameCache[id].turn - node->game->turn;
-			return 0.5;
+
+			int betterSide = gameCache[id].CalcBetterSide();
+			gameCache[id].state = betterSide; // let better side win
 		}
 	}
 	float value = (gameCache[id].state == root->game->GetSide()) ? 1.f : 0;

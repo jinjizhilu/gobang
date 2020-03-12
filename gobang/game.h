@@ -72,11 +72,11 @@ public:
 
 	enum ChessPriority
 	{
-		E_HIGHEST = 0,
-		E_HIGH,
-		E_MIDDLE,
-		E_LOW,
-		E_LOWEST,
+		E_HIGHEST	= 0,
+		E_HIGH		= 1,
+		E_MIDDLE	= 2,
+		E_LOW		= 3,
+		E_LOWEST	= 4,
 		E_PRIORITY_MAX,
 	};
 
@@ -90,6 +90,7 @@ public:
 	bool IsWin(int id);
 	bool IsLose(int id);
 	void GetGridsByPriority(ChessPriority priority, array<uint8_t, GRID_NUM> &result, int &count);
+	int CalcBoardScore(int side);
 
 	void UpdatScoreInfo(int id, int turn);
 	
@@ -126,11 +127,6 @@ private:
 
 	static array<int, LINE_ID_MAX> lineScoreDict;
 	static bool isLineScoreDictReady;
-
-	static map<uint64_t, bool> boardDict;
-	static array<uint64_t, GRID_NUM> hashKeyDict;
-	static bool isHashKeyDictReady;
-	static void InitHashKeyDict();
 };
 
 class GameBase
@@ -152,6 +148,7 @@ public:
 	void UpdateValidGrids();
 	bool UpdateValidGridsExtra();
 	int GetNextMove();
+	int CalcBetterSide();
 
 	Board board;
 	int state;

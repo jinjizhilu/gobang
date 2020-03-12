@@ -11,24 +11,15 @@
 #define OUTPUT_LINE_SCORE_DICT 0
 #define OUTPUT_RESTRICTED_SCORE 0
 
-bool Board::RestrictedMoveRule = true;
+bool Board::RestrictedMoveRule = false;
 
 bool Board::isLineScoreDictReady = false;
 array<int, LINE_ID_MAX> Board::lineScoreDict;
-
-int Board::hitCount = 0;
-int Board::totalCount = 0;
-bool Board::isHashKeyDictReady = false;
-array<uint64_t, GRID_NUM> Board::hashKeyDict;
-map<uint64_t, bool> Board::boardDict;
 
 Board::Board()
 {
 	if (!isLineScoreDictReady)
 		InitLineScoreDict();
-
-	if (!isHashKeyDictReady)
-		InitHashKeyDict();
 
 	Clear();
 }
@@ -110,10 +101,17 @@ void Board::PrintScore(int side)
 			int id = Board::Coord2Id(i, j);
 			int score = scoreInfo[i0][id];
 
-			if (score != 0)
-				printf("%5d", score);
+			if (grids[id] == E_EMPTY)
+			{
+				if (score != 0)
+					printf("%5d", score);
+				else
+					printf("     ");
+			}
 			else
-				printf("     ");
+			{
+				printf("%5d", -grids[id]);
+			}
 		}
 		cout << endl << endl;
 	}
@@ -145,7 +143,7 @@ void Board::PrintPriority()
 				int priority = gridCheckStatus[id];
 				if (priority < E_LOWEST)
 				{
-					printf("%d ", priority + 1);
+					printf("%d ", priority);
 				}
 				else
 				{
@@ -209,6 +207,26 @@ bool Board::IsLose(int id)
 			return true;
 	}
 	return false;
+}
+
+int Board::CalcBoardScore(int side)
+{
+	int i0 = (side == E_BLACK) ? 0 : 1;
+
+	int boardScore = 0;
+	for (int i = 0; i < GRID_NUM; ++i)
+	{
+		if (grids[i] == E_EMPTY)
+		{
+			if (RestrictedMoveRule && side == E_BLACK)
+			{
+				if (Board::IsRestrictedMove(scoreInfo[i0][i]))
+					continue;
+			}
+			boardScore += scoreInfo[i0][i];
+		}
+	}
+	return boardScore;
 }
 
 void Board::InitLineScoreDict()
@@ -504,14 +522,6 @@ short Board::CalcLineScore(array<char, 9> line)
 	return score;
 }
 
-void Board::InitHashKeyDict()
-{
-	for (int i = 0; i < GRID_NUM; ++i)
-	{
-		hashKeyDict[i] = ((uint64_t)rand() << 48) + ((uint64_t)rand() << 32) + ((uint64_t)rand() << 16) + (uint64_t)rand();
-	}
-	isHashKeyDictReady = true;
-}
 
 void Board::UpdatScoreInfo(int id, int turn)
 {
@@ -560,17 +570,6 @@ void Board::UpdatScoreInfo(int id, int turn)
 	}
 
 	UpdateGridsInfo(i1); // grids info for next turn
-
-	hashKey += hashKeyDict[id] * side;
-	if (boardDict.find(hashKey) != boardDict.end())
-	{
-		hitCount++;
-	}
-	else
-	{
-		boardDict[hashKey] = true;
-	}
-	totalCount++;
 }
 
 void Board::UpdateScore(int row, int col, int rowX, int colX, ChessDirection direction, int side)
@@ -801,7 +800,7 @@ void Board::UpdateGridsInfo(int i0)
 			}
 			else
 			{
-				if (score0 > 0 || score1 > 0)
+				if (score0 > 0)
 				{
 					gridCheckStatus[i] = min(gridCheckStatus[i], E_OPEN_TWO);
 				}
@@ -861,7 +860,7 @@ void Board::UpdateGridsInfo(int i0)
 			break;
 		case E_COUNTER_OPEN_THREE:
 		case E_TWO_TWO:
-			priority = E_MIDDLE;
+			priority = E_LOW;
 			break;
 		case E_OPEN_TWO:
 			priority = E_LOW;
@@ -1046,12 +1045,6 @@ bool GameBase::UpdateValidGridsExtra()
 {
 	if (board.keyGrid == 0xff)
 	{
-		if (board.hasPriority[Board::E_HIGH] && board.hasPriority[Board::E_MIDDLE])
-		{
-			board.GetGridsByPriority(Board::E_MIDDLE, validGrids, validGridCount);
-			return true;
-		}
-
 		if (!board.hasPriority[Board::E_HIGH] && board.hasPriority[Board::E_MIDDLE] && board.hasPriority[Board::E_LOW])
 		{
 			board.GetGridsByPriority(Board::E_LOW, validGrids, validGridCount);
@@ -1072,6 +1065,14 @@ int GameBase::GetNextMove()
 	return validGrids[id];
 }
 
+int GameBase::CalcBetterSide()
+{
+	int otherSide = 3 - GetSide();
+	int score0 = board.CalcBoardScore(GetSide());
+	int score1 = board.CalcBoardScore(otherSide);
+
+	return (score0 > score1) ? GetSide() : otherSide;
+}
 ///////////////////////////////////////////////////////////////////
 
 bool Game::PutChess(int Id)
