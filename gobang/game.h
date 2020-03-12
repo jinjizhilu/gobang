@@ -59,6 +59,7 @@ public:
 		E_OPEN_FOUR,
 		E_FOUR_THREE,
 		E_CLOSE_FOUR,
+		E_COUNTER_OPEN_FOUR,
 		E_COUNTER_FOUR_THREE,
 		E_THREE_THREE,
 		E_COUNTER_THREE_THREE,
@@ -83,9 +84,9 @@ public:
 	Board();
 
 	void Clear();
-	void Print(int lastChess);
-	void PrintScore(int side);
-	void PrintPriority();
+	void Print(int lastChess, bool isLog = false);
+	void PrintScore(int side, bool isLog = false);
+	void PrintPriority(bool isLog = false);
 
 	bool IsWin(int id);
 	bool IsLose(int id);
@@ -161,6 +162,8 @@ public:
 class Game : private GameBase
 {
 public:
+	Game();
+
 	int GetState() { return state; }
 	int GetTurn() { return turn; }
 
@@ -174,7 +177,9 @@ public:
 
 private:
 	void RebuildBoardInfo();
+	void OutputLog();
 
+	FILE *fp;
 	vector<uint8_t> record;
 };
 

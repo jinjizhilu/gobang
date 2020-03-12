@@ -316,10 +316,10 @@ void MCTS::PrintTree(TreeNode *node, int level)
 	if (level == 1)
 	{
 		freopen_s(&fp, LOG_FILE, "a+", stdout);
-		node->game->board.Print(node->game->lastMove);
-		node->game->board.PrintScore(3 - node->game->GetSide());
-		node->game->board.PrintScore(node->game->GetSide());
-		node->game->board.PrintPriority();
+		node->game->board.Print(node->game->lastMove, true);
+		node->game->board.PrintScore(3 - node->game->GetSide(), true);
+		node->game->board.PrintScore(node->game->GetSide(), true);
+		node->game->board.PrintPriority(true);
 		fclose(stdout);
 		freopen_s(&fp, "CON", "w", stdout);
 

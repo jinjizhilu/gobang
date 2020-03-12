@@ -6,6 +6,8 @@
 #define max(a, b) ((a > b) ? a : b)
 #define min(a, b) ((a < b) ? a : b)
 
+#define GAME_LOG_FILE "Game.log"
+
 #define PRINT_SCORE 0
 #define PRINT_PRIORITY 0
 #define OUTPUT_LINE_SCORE_DICT 0
@@ -33,44 +35,46 @@ void Board::Clear()
 	gridCheckStatus.fill(E_PRIORITY_MAX);
 }
 
-void Board::Print(int lastChess)
+void Board::Print(int lastChess, bool isLog)
 {
+	const char *format = (isLog ? "%c  " : "%c ");
+
 	cout << " ";
 	for (int i = 1; i <= BOARD_SIZE; ++i)
 	{
 		if (i < 10)
-			printf("%2d", i);
+			printf((isLog ? "%3d" : "%2d"), i);
 		else
-			printf(" %c", 'a' + i - 10);
+			printf((isLog ? "  %c" : " %c"), 'a' + i - 10);
 	}
 	cout << endl;
 
 	for (int i = 0; i < BOARD_SIZE; ++i)
 	{
-		printf("%c ", 'A' + i);
+		printf(format, 'A' + i);
 
 		for (int j = 0; j < BOARD_SIZE; ++j)
 		{
 			int id = Board::Coord2Id(i, j);
+			int grid = grids[id];
+
 			if (id == lastChess)
 			{
-				cout << "X ";
+				printf(format, grid == E_BLACK ? 'B' : 'W');
 				continue;
 			}
 
-			int grid = grids[id];
-
 			if (grid == E_EMPTY)
 			{
-				cout << "- ";
+				printf(format, '-');
 			}
 			if (grid == E_BLACK)
 			{
-				cout << "@ ";
+				printf(format, '@');
 			}
 			if (grid == E_WHITE)
 			{
-				cout << "O ";
+				printf(format, 'O');
 			}
 		}
 		cout << endl;
@@ -78,7 +82,7 @@ void Board::Print(int lastChess)
 	cout << endl;
 }
 
-void Board::PrintScore(int side)
+void Board::PrintScore(int side, bool isLog)
 {
 	int i0 = (side == Board::E_BLACK) ? 0 : 1;
 
@@ -117,21 +121,23 @@ void Board::PrintScore(int side)
 	}
 }
 
-void Board::PrintPriority()
+void Board::PrintPriority(bool isLog)
 {
+	const char *format = (isLog ? "%c  " : "%c ");
+
 	cout << " ";
 	for (int i = 1; i <= BOARD_SIZE; ++i)
 	{
 		if (i < 10)
-			printf("%2d", i);
+			printf((isLog ? "%3d" : "%2d"), i);
 		else
-			printf(" %c", 'a' + i - 10);
+			printf((isLog ? "  %c" : " %c"), 'a' + i - 10);
 	}
 	cout << endl;
 
 	for (int i = 0; i < BOARD_SIZE; ++i)
 	{
-		printf("%c ", 'A' + i);
+		printf(format, 'A' + i);
 
 		for (int j = 0; j < BOARD_SIZE; ++j)
 		{
@@ -143,20 +149,20 @@ void Board::PrintPriority()
 				int priority = gridCheckStatus[id];
 				if (priority < E_LOWEST)
 				{
-					printf("%d ", priority);
+					printf((isLog ? "%d  " : "%d "), priority);
 				}
 				else
 				{
-					printf("  ");
+					printf(format, ' ');
 				}
 			}
 			if (grid == E_BLACK)
 			{
-				cout << "+ ";
+				printf(format, '+');
 			}
 			if (grid == E_WHITE)
 			{
-				cout << "- ";
+				printf(format, '-');
 			}
 		}
 		cout << endl;
@@ -761,6 +767,13 @@ void Board::UpdateGridsInfo(int i0)
 				gridCheckStatus[i] = E_CLOSE_FOUR;
 				hasGridType[E_CLOSE_FOUR] = true;
 			}
+			else if (score1 >= OPEN_FOUR_SCORE)
+			{
+				gridCheckStatus[i] = E_COUNTER_OPEN_FOUR;
+				hasGridType[E_COUNTER_OPEN_FOUR] = true;
+
+				FindOtherGrids(i1, i, E_COUNTER_OPEN_FOUR); // find other possible counter moves
+			}
 			else if (score1 >= FOUR_THREE_SCORE)
 			{
 				gridCheckStatus[i] = E_COUNTER_FOUR_THREE;
@@ -848,6 +861,7 @@ void Board::UpdateGridsInfo(int i0)
 		case E_CLOSE_FOUR:
 			priority = (bestType <= E_COUNTER_THREE_THREE) ? E_HIGH : E_MIDDLE; // try to win before opponent
 			break;
+		case E_COUNTER_OPEN_FOUR:
 		case E_COUNTER_FOUR_THREE:
 			priority = E_HIGH;
 			break;
@@ -1075,11 +1089,19 @@ int GameBase::CalcBetterSide()
 }
 ///////////////////////////////////////////////////////////////////
 
+Game::Game()
+{
+	// clear log file
+	fopen_s(&fp, GAME_LOG_FILE, "w");
+	fclose(fp);
+}
+
 bool Game::PutChess(int Id)
 {
 	if (GameBase::PutChess(Id))
 	{
 		record.push_back(lastMove);
+		OutputLog();
 		return true;
 	}
 	return false;
@@ -1122,19 +1144,17 @@ void Game::Print()
 
 	printf("=== Current State: %s ===\n", stateText[state].c_str());
 	board.Print(lastMove);
+}
 
-	if (PRINT_SCORE)
-	{
-		board.PrintScore(3 - GetSide());
-		board.PrintScore(GetSide());
-		cout << endl;
-	}
-
-	if (PRINT_PRIORITY)
-	{
-		board.PrintPriority();
-		cout << endl;
-	}
+void Game::OutputLog()
+{
+	freopen_s(&fp, GAME_LOG_FILE, "a+", stdout);
+	board.Print(lastMove, true);
+	board.PrintScore(3 - GetSide(), true);
+	board.PrintScore(GetSide(), true);
+	board.PrintPriority(true);
+	fclose(stdout);
+	freopen_s(&fp, "CON", "w", stdout);
 }
 
 int Game::Str2Id(const string &str)
