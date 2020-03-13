@@ -2,7 +2,7 @@
 #include "mcts.h"
 #include "ctime"
 
-void TurnHuman(Game &g, bool useAI)
+bool TurnHuman(MCTS &ai, Game &g, bool useAI)
 {
 	string input;
 	int move;
@@ -19,6 +19,15 @@ void TurnHuman(Game &g, bool useAI)
 			g.Print();
 			continue;
 		}
+		if (input == "restart")
+			return false;
+
+		if (input == "aihelp")
+		{
+			int aiMove = ai.Search(&g);
+			cout << "AI's move: " << Game::Id2Str(aiMove) << endl;
+			continue;
+		}
 
 		move = Game::Str2Id(input);
 		if (move != -1)
@@ -27,8 +36,9 @@ void TurnHuman(Game &g, bool useAI)
 				break;
 		}
 
-		cout << "Invalid move! (format: H8 | undo)" << endl;
+		cout << "Invalid move! (format: H8 | undo | restart | aihelp)" << endl;
 	}
+	return true;
 }
 
 void TurnAI(MCTS &ai, Game &g)
@@ -43,76 +53,94 @@ int main()
 {
 	srand((unsigned)time(NULL));
 
-	MCTS ai;
+	MCTS ai1(0), ai2(0);
 	Game g;
 	
 	bool useAI = false;
 	bool AIFirst = false;
 	bool AISecond = false;
 
-	cout << "Available game mode:" << endl;
-	cout << "1: AI first" << endl;
-	cout << "2: human first" << endl;
-	cout << "3: no AI" << endl;
-	cout << "4: no human" << endl;
-
-	int mode = 0;
 	while (1)
 	{
-		cout << "select mode:";
-		cin >> mode;
+		cout << "====================" << endl;
+		cout << "Available game mode:" << endl;
+		cout << "1: AI first" << endl;
+		cout << "2: human first" << endl;
+		cout << "3: no AI" << endl;
+		cout << "4: no human" << endl;
+		cout << "5: exit" << endl;
 
-		if (mode >= 1 && mode <= 4)
-			break;
-
-		cout << "Invalid mode!" << endl << endl;
-	}
-
-	if (mode == 1)
-	{
-		useAI = true;
-		AIFirst = true;
-	}
-	else if (mode == 2)
-	{
-		useAI = true;
-		AISecond = true;
-	}
-	else if (mode == 4)
-	{
-		useAI = true;
-		AIFirst = true;
-		AISecond = true;
-	}
-
-	g.Print();
-	while (g.GetState() == GameBase::E_NORMAL)
-	{
-		if (useAI && AIFirst)
+		int mode = 0;
+		while (1)
 		{
-			TurnAI(ai, g);
+			cout << "select mode:";
+			cin >> mode;
+
+			if (mode >= 1 && mode <= 5)
+				break;
+
+			cout << "Invalid mode!" << endl << endl;
 		}
-		else
+
+		if (mode == 1)
 		{
-			TurnHuman(g, useAI);
+			useAI = true;
+			AIFirst = true;
+			AISecond = false;
+		}
+		else if (mode == 2)
+		{
+			useAI = true;
+			AIFirst = false;
+			AISecond = true;
+		}
+		else if (mode == 3)
+		{
+			useAI = false;
+		}
+		else if (mode == 4)
+		{
+			useAI = true;
+			AIFirst = true;
+			AISecond = true;
+		}
+		else if (mode == 5)
+		{
+			break;
 		}
 
 		g.Print();
-		if (g.GetState() != GameBase::E_NORMAL)
+		while (g.GetState() == GameBase::E_NORMAL)
 		{
-			break;
-		}
+			if (useAI && AIFirst)
+			{
+				TurnAI(ai1, g);
+			}
+			else
+			{
+				if (!TurnHuman(ai1, g, useAI))
+					break;
+			}
 
-		if (useAI && AISecond)
-		{
-			TurnAI(ai, g);
+			g.Print();
+			if (g.GetState() != GameBase::E_NORMAL)
+			{
+				break;
+			}
+
+			if (useAI && AISecond)
+			{
+				TurnAI(ai2, g);
+			}
+			else
+			{
+				if (!TurnHuman(ai2, g, useAI))
+					break;
+			}
+
+			g.Print();
 		}
-		else
-		{
-			TurnHuman(g, useAI);
-		}
-	
-		g.Print();
+		g.Reset();
 	}
 
 	return 0;

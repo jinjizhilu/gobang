@@ -13,7 +13,7 @@
 #define OUTPUT_LINE_SCORE_DICT 0
 #define OUTPUT_RESTRICTED_SCORE 0
 
-bool Board::RestrictedMoveRule = false;
+bool Board::RestrictedMoveRule = true;
 
 bool Board::isLineScoreDictReady = false;
 array<int, LINE_ID_MAX> Board::lineScoreDict;
@@ -1121,6 +1121,11 @@ void Game::Regret(int step)
 	lastMove = record.empty() ? -1 : record.back();
 }
 
+void Game::Reset()
+{
+	Init();
+}
+
 void Game::RebuildBoardInfo()
 {
 	board.Clear();
@@ -1137,12 +1142,15 @@ void Game::RebuildBoardInfo()
 
 void Game::Print()
 {
+	string sideText[] = { "Black", "White" };
 	string stateText[] = { "Normal", "Black Win", "White Win", "Draw" };
 
+	cout << endl;
 	if (state == E_WHITE_WIN && GetSide() == Board::E_WHITE)
 		printf("Black lose for restricted move!\n");
 
-	printf("=== Current State: %s ===\n", stateText[state].c_str());
+	printf("=== Turn %03d | %s's turn ===\n", GetTurn(), sideText[GetSide() - 1].c_str());
+	printf("===  Current State: %s  ===\n", stateText[state].c_str());
 	board.Print(lastMove);
 }
 

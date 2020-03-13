@@ -27,7 +27,7 @@ public:
 class MCTS
 {
 public:
-	MCTS();
+	MCTS(int mode = 0);
 	~MCTS();
 	int Search(Game *state);
 
@@ -60,4 +60,5 @@ private:
 	GameBase gameCache[THREAD_NUM_MAX];
 	list<TreeNode*> pool;
 	TreeNode *root;
+	int mode;
 };

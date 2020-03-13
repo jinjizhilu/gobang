@@ -169,6 +169,7 @@ public:
 
 	bool PutChess(int id);
 	void Regret(int step = 2);
+	void Reset();
 	void Print();
 
 	const vector<uint8_t>& GetRecord() { return record; }

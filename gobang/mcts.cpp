@@ -8,7 +8,7 @@
 const char* LOG_FILE = "MCTS.log";
 const char* LOG_FILE_FULL = "MCTS_FULL.log";
 const float Cp = 2.0f;
-const float SEARCH_TIME = 2.0f;
+const float SEARCH_TIME = 1.0f;
 const int	EXPAND_THRESHOLD = 3;
 const bool	ENABLE_MULTI_THREAD = true;
 const float	FAST_STOP_THRESHOLD = 0.1f;
@@ -31,8 +31,10 @@ TreeNode::TreeNode(TreeNode *p)
 
 FILE *fp;
 
-MCTS::MCTS()
+MCTS::MCTS(int mode)
 {
+	this->mode = mode;
+
 	root = NULL;
 
 	// clear log file
