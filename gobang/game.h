@@ -177,7 +177,7 @@ public:
 	static string Id2Str(int id);
 
 private:
-	void RebuildBoardInfo();
+	void RebuildBoard();
 	void OutputLog();
 
 	FILE *fp;

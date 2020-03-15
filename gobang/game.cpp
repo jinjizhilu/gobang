@@ -1111,32 +1111,24 @@ void Game::Regret(int step)
 {
 	while (!record.empty() && --step >= 0)
 	{
-		--turn;
-		validGrids[validGridCount++] = record.back();
-		board.grids[record.back()] = Board::E_EMPTY;
 		record.pop_back();
 	}
-	RebuildBoardInfo();
-
-	lastMove = record.empty() ? -1 : record.back();
+	RebuildBoard();
 }
 
 void Game::Reset()
 {
-	Init();
+	GameBase::Init();
+	record.clear();
 }
 
-void Game::RebuildBoardInfo()
+void Game::RebuildBoard()
 {
-	board.Clear();
+	GameBase::Init();
 
 	for (int i = 0; i < record.size(); ++i)
 	{
-		int side = (i % 2 == 0) ? Board::E_BLACK : Board::E_WHITE;
-		int id = record[i];
-
-		board.grids[id] = side;
-		board.UpdatScoreInfo(id, i + 1);
+		GameBase::PutChess(record[i]);
 	}
 }
 
