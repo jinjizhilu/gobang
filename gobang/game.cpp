@@ -8,6 +8,7 @@
 
 #define GAME_LOG_FILE "Game.log"
 
+#define USE_BEAUTIFUL_BOARD 1
 #define PRINT_SCORE 0
 #define PRINT_PRIORITY 0
 #define OUTPUT_LINE_SCORE_DICT 0
@@ -35,8 +36,103 @@ void Board::Clear()
 	gridCheckStatus.fill(E_PRIORITY_MAX);
 }
 
+void Board::TestPrint()
+{
+	for (int i = 0; i < GRID_NUM; ++i)
+		grids[i] = rand() % 3;
+
+	PrintNew(rand() % 10);
+}
+
+void Board::PrintNew(int lastChess)
+{
+	cout << endl << "  £Á£Â£Ã£Ä£Å£Æ£Ç£È£É£Ê£Ë£Ì£Í£Î£Ï" << endl;
+
+	string digits[] = {"£±", "£²", "£³", "£´", "£µ", "£¶", "£·", "£¸", "£¹", "£á", "£â", "£ã", "£ä", "£å", "£æ"};
+
+	for (int i = 0; i < BOARD_SIZE; ++i)
+	{
+		cout << digits[i];
+
+		for (int j = 0; j < BOARD_SIZE; ++j)
+		{
+			int id = Board::Coord2Id(i, j);
+			int grid = grids[id];
+
+			if (id == lastChess)
+			{
+				cout << (grid == E_BLACK ? "¡ò": "¡ò");
+				continue;
+			}
+
+			if (grid == E_EMPTY)
+			{
+				if (i == 0)
+				{
+					if (j == 0)
+					{
+						cout << "©³ ";
+					}
+					else if (j == BOARD_SIZE - 1)
+					{
+						cout << "©· ";
+					}
+					else
+					{
+						cout << "©Ó ";
+					}
+				}
+				else if (i == BOARD_SIZE - 1)
+				{
+					if (j == 0)
+					{
+						cout << "©» ";
+					}
+					else if (j == BOARD_SIZE - 1)
+					{
+						cout << "©¿ ";
+					}
+					else
+					{
+						cout << "©Û ";
+					}
+				}
+				else if (j == 0)
+				{
+					cout << "©Ä ";
+				}
+				else if (j == BOARD_SIZE - 1)
+				{
+					cout << "©Ì ";
+				}
+				else
+				{
+					cout << "©à ";
+				}
+			}
+			if (grid == E_BLACK)
+			{
+				cout << "¡ñ";
+			}
+			if (grid == E_WHITE)
+			{
+				cout << "¡ð";
+			}
+		}
+		cout << endl;
+	}
+	cout << endl;
+}
+
+
 void Board::Print(int lastChess, bool isLog)
 {
+	if (USE_BEAUTIFUL_BOARD && !isLog)
+	{
+		PrintNew(lastChess);
+		return;
+	}
+
 	const char *format = (isLog ? "%c  " : "%c ");
 
 	cout << " ";
@@ -1159,8 +1255,8 @@ void Game::OutputLog()
 
 int Game::Str2Id(const string &str)
 {
-	int row = str[0] - 'A';
-	int col = str[1] <= '9' ? str[1] - '1' : str[1] - 'a' + 9;
+	int col = str[0] - 'A';
+	int row = str[1] <= '9' ? str[1] - '1' : str[1] - 'a' + 9;
 	if (!Board::IsValidCoord(row, col))
 		return -1;
 
@@ -1172,7 +1268,7 @@ string Game::Id2Str(int id)
 {
 	int row, col;
 	Board::Id2Coord(id, row, col);
-	string result(1, row + 'A');
-	result += (col < 9) ? col + '1' : col + 'a' - 9;
+	string result(1, col + 'A');
+	result += (row < 9) ? row + '1' : row + 'a' - 9;
 	return result;
 }

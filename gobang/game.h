@@ -85,8 +85,10 @@ public:
 
 	void Clear();
 	void Print(int lastChess, bool isLog = false);
+	void PrintNew(int lastChess);
 	void PrintScore(int side, bool isLog = false);
 	void PrintPriority(bool isLog = false);
+	void TestPrint();
 
 	bool IsWin(int id);
 	bool IsLose(int id);
