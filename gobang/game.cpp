@@ -14,7 +14,7 @@
 #define OUTPUT_LINE_SCORE_DICT 0
 #define OUTPUT_RESTRICTED_SCORE 0
 
-bool Board::RestrictedMoveRule = true;
+bool Board::RestrictedMoveRule = false;
 
 bool Board::isLineScoreDictReady = false;
 array<int, LINE_ID_MAX> Board::lineScoreDict;
