@@ -9,8 +9,6 @@
 #define GAME_LOG_FILE "Game.log"
 
 #define USE_BEAUTIFUL_BOARD 1
-#define PRINT_SCORE 0
-#define PRINT_PRIORITY 0
 #define OUTPUT_LINE_SCORE_DICT 0
 #define OUTPUT_RESTRICTED_SCORE 0
 
@@ -135,19 +133,19 @@ void Board::Print(int lastChess, bool isLog)
 
 	const char *format = (isLog ? "%c  " : "%c ");
 
-	cout << " ";
-	for (int i = 1; i <= BOARD_SIZE; ++i)
+	cout << (isLog ? "   " : "  ");
+	for (int i = 0; i < BOARD_SIZE; ++i)
 	{
-		if (i < 10)
-			printf((isLog ? "%3d" : "%2d"), i);
-		else
-			printf((isLog ? "  %c" : " %c"), 'a' + i - 10);
+		printf(format, 'A' + i);
 	}
 	cout << endl;
 
 	for (int i = 0; i < BOARD_SIZE; ++i)
 	{
-		printf(format, 'A' + i);
+		if (i < 9)
+			printf(format, '1' + i);
+		else
+			printf(format, 'a' + i - 9);
 
 		for (int j = 0; j < BOARD_SIZE; ++j)
 		{
@@ -182,19 +180,19 @@ void Board::PrintScore(int side, bool isLog)
 {
 	int i0 = (side == Board::E_BLACK) ? 0 : 1;
 
-	cout << " ";
-	for (int i = 1; i <= BOARD_SIZE; ++i)
+	cout << "  ";
+	for (int i = 0; i < BOARD_SIZE; ++i)
 	{
-		if (i < 10)
-			printf("%5d", i);
-		else
-			printf("    %c", 'a' + i - 10);
+		printf("    %c", 'A' + i);
 	}
-	cout << endl;
+	cout << endl << endl;
 
 	for (int i = 0; i < BOARD_SIZE; ++i)
 	{
-		printf("%c", 'A' + i);
+		if (i < 9)
+			printf("%d ", i + 1);
+		else
+			printf("%c ", 'a' + i - 9);
 
 		for (int j = 0; j < BOARD_SIZE; ++j)
 		{
@@ -221,19 +219,19 @@ void Board::PrintPriority(bool isLog)
 {
 	const char *format = (isLog ? "%c  " : "%c ");
 
-	cout << " ";
-	for (int i = 1; i <= BOARD_SIZE; ++i)
+	cout << (isLog ? "   " : "  ");
+	for (int i = 0; i < BOARD_SIZE; ++i)
 	{
-		if (i < 10)
-			printf((isLog ? "%3d" : "%2d"), i);
-		else
-			printf((isLog ? "  %c" : " %c"), 'a' + i - 10);
+		printf(format, 'A' + i);
 	}
 	cout << endl;
 
 	for (int i = 0; i < BOARD_SIZE; ++i)
 	{
-		printf(format, 'A' + i);
+		if (i < 9)
+			printf(format, '1' + i);
+		else
+			printf(format, 'a' + i - 9);
 
 		for (int j = 0; j < BOARD_SIZE; ++j)
 		{
