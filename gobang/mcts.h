@@ -27,7 +27,7 @@ public:
 class MCTS
 {
 public:
-	MCTS();
+	MCTS(int mode = 0);
 	~MCTS();
 	int Search(Game *state);
 
@@ -44,20 +44,21 @@ private:
 	// custom optimization
 	bool PreExpandTree(TreeNode *node);
 
-	int CheckOpeningBook(GameBase *state);
+	int CheckBook(GameBase *state);
 
 	void ClearNodes(TreeNode *node);
 	float CalcScore(const TreeNode *node, float c, float logParentVisit);
 	float CalcScoreFast(const TreeNode *node, float expandFactorParent_c);
-	void PrintTree(TreeNode *node, int level = 0);
-	void PrintFullTree(TreeNode *node, int level = 0);
+	void PrintTree(TreeNode *node, int level = 1);
+	void PrintFullTree(TreeNode *node, int level = 1);
 
 	TreeNode* NewTreeNode(TreeNode *parent);
 	void RecycleTreeNode(TreeNode *node);
 	void ClearPool();
 	
-	int maxDepth;
+	int maxDepth, fastStopSteps, fastStopCount;
 	GameBase gameCache[THREAD_NUM_MAX];
 	list<TreeNode*> pool;
 	TreeNode *root;
+	int mode;
 };

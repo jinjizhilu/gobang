@@ -8,11 +8,13 @@
 const char* LOG_FILE = "MCTS.log";
 const char* LOG_FILE_FULL = "MCTS_FULL.log";
 const float Cp = 2.0f;
-const float SEARCH_TIME = 2.0f;
+const float SEARCH_TIME = 1.0f;
 const int	EXPAND_THRESHOLD = 3;
-const bool	ENABLE_MULTI_THREAD = false;
+const bool	ENABLE_MULTI_THREAD = true;
 const float	FAST_STOP_THRESHOLD = 0.1f;
-const float	FAST_STOP_BRANCH_FACTOR = 0.005f;
+const float	FAST_STOP_BRANCH_FACTOR = 0.01f;
+
+const bool	ENABLE_TRY_MORE_NODE = true;
 const int	TRY_MORE_NODE_THRESHOLD = 1000;
 
 TreeNode::TreeNode(TreeNode *p)
@@ -29,8 +31,10 @@ TreeNode::TreeNode(TreeNode *p)
 
 FILE *fp;
 
-MCTS::MCTS()
+MCTS::MCTS(int mode)
 {
+	this->mode = mode;
+
 	root = NULL;
 
 	// clear log file
@@ -82,9 +86,15 @@ void MCTS::SearchThread(int id, int seed, MCTS *mcts, clock_t startTime)
 
 int MCTS::Search(Game *state)
 {
-	int move = CheckOpeningBook((GameBase*)state);
+	int move = CheckBook((GameBase*)state);
 	if (move != -1)
+	{
+		printf("using book check result (no searching)\n");
 		return move;
+	}
+
+	fastStopSteps = 0;
+	fastStopCount = 0;
 
 	root = NewTreeNode(NULL);
 	*(root->game) = *((GameBase*)state);
@@ -108,7 +118,8 @@ int MCTS::Search(Game *state)
 	maxDepth = 0;
 	PrintTree(root);
 	PrintFullTree(root);
-	printf("time: %.2f, iteration: %d, depth: %d, win: %d/%d\n", float(clock() - startTime) / 1000, root->visit, maxDepth, (int)best->value, best->visit);
+	printf("time: %.2f, iteration: %d, depth: %d, win: %.2f%% (%d/%d)\n", float(clock() - startTime) / 1000, root->visit, maxDepth, best->value * 100 / best->visit, (int)best->value, best->visit);
+	printf("fast stop count: %d, average stop steps: %d\n", fastStopCount, fastStopSteps / (fastStopCount + 1));
 
 	ClearNodes(root);
 
@@ -140,7 +151,7 @@ bool MCTS::PreExpandTree(TreeNode *node)
 	else
 	{
 		// try grids with lower priority after certain visits
-		if (node->gridLevel == 0 && node->visit > TRY_MORE_NODE_THRESHOLD)
+		if (ENABLE_TRY_MORE_NODE && node->gridLevel == 0 && node->visit > TRY_MORE_NODE_THRESHOLD * node->children.size())
 		{
 			if (node->game->UpdateValidGridsExtra())
 			{
@@ -212,15 +223,19 @@ float MCTS::DefaultPolicy(TreeNode *node, int id)
 	float weight = 1.0f;
 	while (gameCache[id].state == GameBase::E_NORMAL)
 	{
-		weight *= (1 - FAST_STOP_BRANCH_FACTOR * gameCache[id].validGridCount);
+		float factor = (1 - FAST_STOP_BRANCH_FACTOR * gameCache[id].validGridCount);
+		weight *= max(factor, 0.5f);
 
 		int move = gameCache[id].GetNextMove();
 		gameCache[id].PutChess(move);
 
 		if (weight < FAST_STOP_THRESHOLD)
 		{
-			//cout << (gameCache[id].turn - node->game->turn) << endl;
-			return 0.5;
+			fastStopCount++;
+			fastStopSteps += gameCache[id].turn - node->game->turn;
+
+			int betterSide = gameCache[id].CalcBetterSide();
+			gameCache[id].state = betterSide; // let better side win
 		}
 	}
 	float value = (gameCache[id].state == root->game->GetSide()) ? 1.f : 0;
@@ -300,10 +315,19 @@ void MCTS::ClearPool()
 
 void MCTS::PrintTree(TreeNode *node, int level)
 {
-	if (level == 0)
+	if (level == 1)
 	{
+		freopen_s(&fp, LOG_FILE, "a+", stdout);
+		node->game->board.Print(node->game->lastMove, true);
+		node->game->board.PrintScore(3 - node->game->GetSide(), true);
+		node->game->board.PrintScore(node->game->GetSide(), true);
+		node->game->board.PrintPriority(true);
+		fclose(stdout);
+		freopen_s(&fp, "CON", "w", stdout);
+
 		fopen_s(&fp, LOG_FILE, "a+");
 		fprintf(fp, "===============================PrintTree=============================\n");
+		fprintf(fp, "visit: %d, value: %.1f, children: %d\n", node->visit, node->value, node->children.size());
 	}
 	
 	if (level > maxDepth)
@@ -317,22 +341,19 @@ void MCTS::PrintTree(TreeNode *node, int level)
 	int i = 1;
 	for (auto it = node->children.begin(); it != node->children.end(); ++it)
 	{
-		if ((float)(*it)->visit / root->visit > 0.000)
-		{
-			fprintf(fp, "%d", level);
-			for (int j = 0; j < level; ++j)
-				fprintf(fp, "   ");
+		fprintf(fp, "%d", level);
+		for (int j = 0; j < level; ++j)
+			fprintf(fp, "   ");
 
-			float expandFactorParent_c = sqrtf(logf(node->visit)) * Cp;
-			fprintf(fp, "visit: %d, value: %.1f, score: %.4f, children: %d, move: %s\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, expandFactorParent_c), (*it)->children.size(), Game::Id2Str((*it)->game->lastMove).c_str());
-			PrintTree(*it, level + 1);
-		}
+		float expandFactorParent_c = sqrtf(logf(node->visit)) * Cp;
+		fprintf(fp, "visit: %d, value: %.1f, score: %.4f, children: %d, move: %s\n", (*it)->visit, (*it)->value, CalcScoreFast(*it, expandFactorParent_c), (*it)->children.size(), Game::Id2Str((*it)->game->lastMove).c_str());
+		PrintTree(*it, level + 1);
 
 		if (++i > 3)
 			break;
 	}
 
-	if (level == 0)
+	if (level == 1)
 	{
 		fprintf(fp,"================================TreeEnd============================\n\n");
 		fclose(fp);
@@ -341,10 +362,11 @@ void MCTS::PrintTree(TreeNode *node, int level)
 
 void MCTS::PrintFullTree(TreeNode *node, int level)
 {
-	if (level == 0)
+	if (level == 1)
 	{
 		fopen_s(&fp, LOG_FILE_FULL, "w");
 		fprintf(fp, "===============================PrintFullTree=============================\n");
+		fprintf(fp, "visit: %d, value: %.1f, children: %d\n", node->visit, node->value, node->children.size());
 	}
 
 	node->children.sort([](const TreeNode *a, const TreeNode *b)
@@ -364,25 +386,27 @@ void MCTS::PrintFullTree(TreeNode *node, int level)
 		PrintFullTree(*it, level + 1);
 	}
 
-	if (level == 0)
+	if (level == 1)
 	{
 		fprintf(fp, "================================TreeEnd============================\n\n");
 		fclose(fp);
 	}
 }
 
-int MCTS::CheckOpeningBook(GameBase *state)
+int MCTS::CheckBook(GameBase *state)
 {
 	int centerId = Game::Str2Id("H8");
 
 	if (state->turn == 1)
 		return centerId;
 
-	if (state->turn == 2 && state->lastMove == centerId)
+	if (state->turn == 2 && Board::CalcDistance(state->lastMove, centerId) <= 3)
 	{
-		int neighbourId[8] = { Game::Str2Id("G7"), Game::Str2Id("G8"), Game::Str2Id("G9"), Game::Str2Id("H7"),
-			Game::Str2Id("H9"), Game::Str2Id("I7"), Game::Str2Id("I8"), Game::Str2Id("I9") };
-		return neighbourId[rand() % 8];
+		int id = state->GetNextMove();
+		while (Board::CalcDistance(state->lastMove, id) > 1)
+			id = state->GetNextMove();
+
+		return id;
 	}
 
 	return -1;
