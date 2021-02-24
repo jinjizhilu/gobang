@@ -11,11 +11,15 @@
 #define USE_BEAUTIFUL_BOARD 1
 #define OUTPUT_LINE_SCORE_DICT 0
 #define OUTPUT_RESTRICTED_SCORE 0
+#define ENABLE_KEY_OPTIMIZATION 1
 
 bool Board::RestrictedMoveRule = false;
 
 bool Board::isLineScoreDictReady = false;
 array<int, LINE_ID_MAX> Board::lineScoreDict;
+
+bool Board::isKeyInfoOriginReady = false;
+array<array<int, GRID_NUM>, 4> Board::keyInfoOrigin;
 
 Board::Board()
 {
@@ -32,6 +36,11 @@ void Board::Clear()
 	scoreInfo[0].fill(0);
 	scoreInfo[1].fill(0);
 	gridCheckStatus.fill(E_PRIORITY_MAX);
+
+	if (ENABLE_KEY_OPTIMIZATION)
+	{
+		InitKeyInfo();
+	}
 }
 
 void Board::TestPrint()
@@ -266,7 +275,7 @@ void Board::PrintPriority(bool isLog)
 
 char Board::GetGrid(int row, int col)
 {
-	if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE)
+	if (!IsValidCoord(row, col))
 		return E_INVALID;
 
 	return grids[Board::Coord2Id(row, col)];
@@ -274,7 +283,7 @@ char Board::GetGrid(int row, int col)
 
 bool Board::SetGrid(int row, int col, char value)
 {
-	if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE)
+	if (!IsValidCoord(row, col))
 		return false;
 
 	grids[Board::Coord2Id(row, col)] = value;
@@ -634,6 +643,8 @@ void Board::UpdatScoreInfo(int id, int turn)
 	int i0 = (side == E_BLACK) ? 0 : 1; // this side
 	int i1 = 1 - i0; // other side
 
+	UpdateKeyInfo(row0, col0);
+
 	for (int j = 0 ; j < 8; ++j)
 	{
 		int dx, dy;
@@ -669,23 +680,124 @@ void Board::UpdatScoreInfo(int id, int turn)
 		}
 	}
 
+	keyInfo[0] = keyInfo[1];
+
 	UpdateGridsInfo(i1); // grids info for next turn
 }
 
+void Board::InitKeyInfo()
+{
+	if (!isKeyInfoOriginReady)
+	{
+		for (int i = 0; i < 4; ++i)
+		{
+			Board::keyInfoOrigin[i].fill(0);
+		}
+
+		for (int i = 0; i < GRID_NUM; ++i)
+		{
+			int row, col;
+			Board::Id2Coord(i, row, col);
+
+			for (int j = 0; j < 4; ++j)
+			{
+				int key = 0;
+
+				int dx, dy;
+				Board::Direction2DxDy((ChessDirection)j, dx, dy);
+
+				int row1 = row, col1 = col;
+				for (int k = 1; k <= 4; ++k)
+				{
+					row1 += dy; col1 += dx;
+
+					int shift = 4 + k;
+					int value = GetGrid(row1, col1) << (shift * 2);
+					key += value;
+				}
+
+				row1 = row; col1 = col;
+				for (int k = 1; k <= 4; ++k)
+				{
+					row1 -= dy; col1 -= dx;
+
+					int shift = 4 - k;
+					int value = GetGrid(row1, col1) << (shift * 2);
+					key += value;
+				}
+				Board::keyInfoOrigin[j][i] = key;
+			}
+		}
+		isKeyInfoOriginReady = true;
+	}
+	keyInfo[0] = Board::keyInfoOrigin;
+	keyInfo[1] = Board::keyInfoOrigin;
+}
+
+__declspec(noinline)
+void Board::UpdateKeyInfo(int row, int col)
+{
+	int side = GetGrid(row, col);
+
+	for (int j = 0; j < 8; ++j)
+	{
+		int keyGroup = (j < 4) ? j : 7 - j;
+		keyInfo[1][keyGroup][Board::Coord2Id(row, col)] += side << (4 * 2);
+
+		int dx, dy;
+		Board::Direction2DxDy((ChessDirection)j, dx, dy);
+
+		int row1 = row, col1 = col;
+		for (int k = 1; k <= 4; ++k)
+		{
+			row1 += dy; col1 += dx;
+
+			if (Board::IsValidCoord(row1, col1))
+			{
+				int shift = (j < 4) ? (4 - k) : (4 + k);
+				int value = side << (shift * 2);
+				keyInfo[1][keyGroup][Board::Coord2Id(row1, col1)] += value;
+			}
+		}
+	}
+}
+
+void Board::UpdateScoreOpt(int row, int col, ChessDirection direction, int side)
+{
+	int id = Board::Coord2Id(row, col);
+	int keyGroup = (direction < 4) ? direction : 7 - direction;
+	int key = keyInfo[1][keyGroup][id] + (side << (4 * 2));
+	int key0 = keyInfo[0][keyGroup][id] + (side << (4 * 2));
+
+	int lineScore = lineScoreDict[key];
+	int lineScore0 = lineScoreDict[key0];
+
+	int i0 = (side == E_BLACK) ? 0 : 1; // this side
+	scoreInfo[i0][Board::Coord2Id(row, col)] += lineScore - lineScore0;
+}
+
+__declspec(noinline)
 void Board::UpdateScore(int row, int col, int rowX, int colX, ChessDirection direction, int side)
 {
+	if (ENABLE_KEY_OPTIMIZATION)
+	{
+		UpdateScoreOpt(row, col, direction, side);
+		return;
+	}
+
 	int key = side << (4 * 2);
 	int key0 = key;
 
 	int dx, dy;
+	direction = ChessDirection(7 - direction);
 	Board::Direction2DxDy(direction, dx, dy);
 
 	int row1 = row, col1 = col;
-	for (int i = 0; i < 4; ++i)
+	for (int i = 1; i <= 4; ++i)
 	{
 		row1 -= dy; col1 -= dx;
 
-		int value = GetGrid(row1, col1) << ((3 - i) * 2);
+		int value = GetGrid(row1, col1) << ((4 - i) * 2);
 		key += value;
 
 		if (!(row1 == rowX && col1 == colX))
@@ -693,11 +805,11 @@ void Board::UpdateScore(int row, int col, int rowX, int colX, ChessDirection dir
 	}
 
 	row1 = row, col1 = col;
-	for (int i = 0; i < 4; ++i)
+	for (int i = 1; i <= 4; ++i)
 	{
 		row1 += dy; col1 += dx;
 
-		int value = GetGrid(row1, col1) << ((5 + i) * 2);
+		int value = GetGrid(row1, col1) << ((4 + i) * 2);
 		key += value;
 
 		if (!(row1 == rowX && col1 == colX))
@@ -706,6 +818,12 @@ void Board::UpdateScore(int row, int col, int rowX, int colX, ChessDirection dir
 
 	int lineScore0 = lineScoreDict[key0];
 	int lineScore = lineScoreDict[key];
+
+	/*int id = Board::Coord2Id(row, col);
+	int keyGroup = (direction < 4) ? direction : 7 - direction;
+	int key2 = keyInfo[1][keyGroup][id] + (side << (4 * 2));
+	int key02 = keyInfo[0][keyGroup][id] + (side << (4 * 2));
+	assert(key2 == key || key02 == key0);*/
 
 	int i0 = (side == E_BLACK) ? 0 : 1; // this side
 	scoreInfo[i0][Board::Coord2Id(row, col)] += lineScore - lineScore0;

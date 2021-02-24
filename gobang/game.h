@@ -110,6 +110,7 @@ public:
 	uint8_t	keyGrid;
 	array<char, GRID_NUM> grids;
 	array<short, GRID_NUM> scoreInfo[2];
+	array<array<int, GRID_NUM>, 4> keyInfo[2];
 	array<char, GRID_NUM> gridCheckStatus;
 	array<bool, E_GRID_TYPE_MAX> hasGridType;
 	array<bool, E_PRIORITY_MAX + 1> hasPriority;
@@ -118,7 +119,10 @@ private:
 	char GetGrid(int row, int col);
 	bool SetGrid(int row, int col, char value);
 
+	void InitKeyInfo();
+	void UpdateKeyInfo(int row, int col);
 	void UpdateScore(int row, int col, int rowX, int colX, ChessDirection direction, int side);
+	void UpdateScoreOpt(int row, int col, ChessDirection direction, int side);
 	void UpdateGridsInfo(int i0);
 	void FindOtherGrids(int i0, int id, GridType type);
 
@@ -130,6 +134,9 @@ private:
 
 	static array<int, LINE_ID_MAX> lineScoreDict;
 	static bool isLineScoreDictReady;
+
+	static array<array<int, GRID_NUM>, 4> keyInfoOrigin;
+	static bool isKeyInfoOriginReady;
 };
 
 class GameBase
